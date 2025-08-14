@@ -3,6 +3,7 @@ package gui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -11,6 +12,7 @@ type Item struct {
 	Name     string
 	IsFather bool
 	IsChild  bool
+	Combine  bool
 }
 
 func createMainWidget(canvas fyne.Canvas) fyne.CanvasObject {
@@ -38,9 +40,9 @@ func createMainWidget(canvas fyne.Canvas) fyne.CanvasObject {
 func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas) {
 	// TODO: Query items from API instead of test items
 	items := []Item{
-		{ID: "1", Name: "Binoculars", IsFather: true, IsChild: false},
-		{ID: "2", Name: "Camera", IsFather: false, IsChild: true},
-		{ID: "3", Name: "Tripod", IsFather: false, IsChild: false},
+		{ID: "1", Name: "Binoculars", IsFather: true, IsChild: false, Combine: false},
+		{ID: "2", Name: "Camera", IsFather: false, IsChild: true, Combine: false},
+		{ID: "3", Name: "Tripod", IsFather: false, IsChild: false, Combine: false},
 	}
 
 	// Clear previous rows
@@ -52,6 +54,10 @@ func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas) {
 			truncatedLabelWithTooltip(item.Name, MaxNameLength, canvas),
 			createDisabledCheck("Vaterartikel", item.IsFather),
 			createDisabledCheck("Kindartikel", item.IsChild),
+			layout.NewSpacer(),
+			widget.NewCheck("Zusammenfügen", func(checked bool) {
+				item.Combine = checked
+			}),
 		)
 		rows.Add(row)
 	}
@@ -82,6 +88,10 @@ func truncatedLabelWithTooltip(text string, maxLen int, canvas fyne.Canvas) fyne
 func createDisabledCheck(text string, checked bool) *widget.Check {
 	cb := widget.NewCheck(text, nil)
 	cb.SetChecked(checked)
-	cb.Disable()
+
+	cb.OnChanged = func(bool) {
+		cb.SetChecked(checked)
+	}
+
 	return cb
 }
