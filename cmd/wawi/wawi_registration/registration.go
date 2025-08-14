@@ -1,7 +1,7 @@
-package registration
+package wawi_registration
 
 import (
-	"WawiIC/defines"
+	"WawiIC/cmd/defines"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -40,7 +40,7 @@ func postAppRegistration() (*defines.RegistrationResponse, error) {
 		return nil, fmt.Errorf("failed to read response: %v", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("registration failed (status %d): %s", resp.StatusCode, string(body))
 	}
 

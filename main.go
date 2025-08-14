@@ -1,8 +1,8 @@
 package main
 
 import (
-	"WawiIC/defines"
-	"WawiIC/registration"
+	"WawiIC/cmd/defines"
+	"WawiIC/cmd/wawi/wawi_registration"
 	"os"
 	"os/exec"
 )
@@ -11,7 +11,7 @@ func main() {
 	_, exists := os.LookupEnv(defines.APIKeyVarName)
 
 	if !exists {
-		apiKey, err := registration.Register()
+		apiKey, err := wawi_registration.Register()
 		if err != nil {
 			panic(err)
 		}
@@ -22,4 +22,5 @@ func main() {
 			panic(err)
 		}
 	}
+
 }
