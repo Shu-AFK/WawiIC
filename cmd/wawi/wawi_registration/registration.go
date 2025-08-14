@@ -19,7 +19,7 @@ func postAppRegistration() (*defines.RegistrationResponse, error) {
 		return nil, fmt.Errorf("failed to marshal JSON: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", defines.APIBaseURL+"/appregistration", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", defines.APIBaseURL+"authentication", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -53,7 +53,7 @@ func postAppRegistration() (*defines.RegistrationResponse, error) {
 }
 
 func waitForRegistrationAcc(registrationID string) (*defines.FetchRegistrationResponse, error) {
-	req, err := http.NewRequest("GET", defines.APIBaseURL+"/authentication/"+registrationID, nil)
+	req, err := http.NewRequest("GET", defines.APIBaseURL+"authentication/"+registrationID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}

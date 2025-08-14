@@ -21,6 +21,10 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-	}
 
+		err = os.Setenv(defines.APIKeyVarName, apiKey)
+		if err != nil {
+			panic(err)
+		}
+	}
 }

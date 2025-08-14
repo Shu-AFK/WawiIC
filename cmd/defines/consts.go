@@ -1,7 +1,7 @@
 package defines
 
 const (
-	APIBaseURL      = ""
+	APIBaseURL      = "https://developer.jtl-software.com/_mock/products/erpapi/openapi/"
 	AppID           = "WawiIC/v1"
 	DisplayName     = "WawiIC"
 	Description     = "Artikel zu Vaterartikeln zusammenführen"
@@ -28,11 +28,7 @@ type AppData struct {
 	ProviderName       string   `json:"ProviderName"`
 	ProviderWebsite    string   `json:"ProviderWebsite"`
 	MandatoryApiScopes []string `json:"MandatoryApiScopes"`
-	OptionalApiScopes  []string `json:"OptionalApiScopes"`
 	AppIcon            string   `json:"AppIcon"`
-	RegistrationType   int      `json:"RegistrationType"`
-	Signature          string   `json:"Signature"`
-	SignatureData      string   `json:"SignatureData"`
 }
 
 type RegistrationResponse struct {
@@ -67,8 +63,5 @@ func ConstructAppData() *AppData {
 		ProviderWebsite:    ProviderWebsite,
 		MandatoryApiScopes: MandatoryAPIScope,
 		AppIcon:            "",
-		RegistrationType:   0,
-		Signature:          "",
-		SignatureData:      "",
 	}
 }

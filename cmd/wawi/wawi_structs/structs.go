@@ -156,3 +156,22 @@ type CategoryResponse struct {
 	NextPageNumber     int            `json:"NextPageNumber"`
 	PreviousPageNumber int            `json:"PreviousPageNumber"`
 }
+
+type ItemImageReq struct {
+	ItemId         int    `json:"ItemId"`
+	ImageId        int    `json:"ImageId"`
+	Filename       string `json:"Filename"`
+	ImageDataType  string `json:"ImageDataType"`
+	SalesChannelId string `json:"SalesChannelId"`
+	EbayUserName   string `json:"EbayUserName"`
+	SortNumber     int    `json:"SortNumber"`
+	Size           int    `json:"Size"`
+	Width          int    `json:"Width"`
+	Height         int    `json:"Height"`
+}
+
+type CreateImageStruct struct {
+	ImageData      string `json:"ImageData"`
+	Filename       string `json:"Filename"`
+	SalesChannelId string `json:"SalesChannelId"`
+}
