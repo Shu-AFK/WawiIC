@@ -6,6 +6,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+var SelectedCategoryID string
+
 // categories: map[parentID][]childID
 // labels: map[ID]Name
 func createSidebarTree(categories map[string][]string, labels map[string]string) *container.Scroll {
@@ -36,6 +38,12 @@ func createSidebarTree(categories map[string][]string, labels map[string]string)
 	}
 
 	tree := widget.NewTree(getChildIDs, isBranch, create, update)
+
+	tree.OnSelected = func(id widget.TreeNodeID) {
+		if id != "Kategorien" {
+			SelectedCategoryID = id
+		}
+	}
 
 	tree.Root = "root"
 

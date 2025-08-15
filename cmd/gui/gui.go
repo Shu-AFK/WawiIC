@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 )
 
 func RunGUI() {
@@ -14,10 +15,10 @@ func RunGUI() {
 
 	tree, labels, err := wawi.GetCategories(10)
 	if err != nil {
-		panic(err)
+		dialog.ShowError(err, w)
 	}
 
-	split := container.NewHSplit(createSidebarTree(tree, labels), createMainWidget(w.Canvas()))
+	split := container.NewHSplit(createSidebarTree(tree, labels), createMainWidget(w.Canvas(), w))
 	split.Offset = 0.15
 
 	w.CenterOnScreen()

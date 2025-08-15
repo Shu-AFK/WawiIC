@@ -31,10 +31,10 @@ type Item struct {
 	ShortDescription    string         `json:"ShortDescription"`
 	Identifiers         Identifiers    `json:"Identifiers"`
 	Components          []Component    `json:"Components"`
-	ChildItems          string         `json:"ChildItems"`
+	ChildItems          []string       `json:"ChildItems"`
 	ParentItemID        int            `json:"ParentItemId"`
 	ItemPriceData       ItemPriceData  `json:"ItemPriceData"`
-	ActiveSalesChannels string         `json:"ActiveSalesChannels"`
+	ActiveSalesChannels []string       `json:"ActiveSalesChannels"`
 	SortNumber          int            `json:"SortNumber"`
 	Annotation          string         `json:"Annotation"`
 	Added               string         `json:"Added"`
@@ -69,13 +69,13 @@ type Category struct {
 }
 
 type Identifiers struct {
-	Gtin               string `json:"Gtin"`
-	ManufacturerNumber string `json:"ManufacturerNumber"`
-	ISBN               string `json:"ISBN"`
-	UPC                string `json:"UPC"`
-	AmazonFnsku        string `json:"AmazonFnsku"`
-	Asins              string `json:"Asins"`
-	OwnIdentifier      string `json:"OwnIdentifier"`
+	Gtin               string   `json:"Gtin"`
+	ManufacturerNumber string   `json:"ManufacturerNumber"`
+	ISBN               string   `json:"ISBN"`
+	UPC                string   `json:"UPC"`
+	AmazonFnsku        string   `json:"AmazonFnsku"`
+	Asins              []string `json:"Asins"`
+	OwnIdentifier      string   `json:"OwnIdentifier"`
 }
 
 type Component struct {
@@ -93,17 +93,17 @@ type ItemPriceData struct {
 }
 
 type StorageOptions struct {
-	InventoryManagementActive             bool `json:"InventoryManagementActive"`
-	SplitQuantity                         bool `json:"SplitQuantity"`
-	GlobalMinimumStockLevel               int  `json:"GlobalMinimumStockLevel"`
-	Buffer                                int  `json:"Buffer"`
-	SerialNumberItem                      bool `json:"SerialNumberItem"`
-	SerialNumberTracking                  bool `json:"SerialNumberTracking"`
-	SubjectToShelfLifeExpirationDate      bool `json:"SubjectToShelfLifeExpirationDate"`
-	SubjectToBatchItem                    bool `json:"SubjectToBatchItem"`
-	ProcurementTime                       int  `json:"ProcurementTime"`
-	DetermineProcurementTimeAutomatically bool `json:"DetermineProcurementTimeAutomatically"`
-	AdditionalHandlingTime                int  `json:"AdditionalHandlingTime"`
+	InventoryManagementActive             bool    `json:"InventoryManagementActive"`
+	SplitQuantity                         bool    `json:"SplitQuantity"`
+	GlobalMinimumStockLevel               float32 `json:"GlobalMinimumStockLevel"`
+	Buffer                                int     `json:"Buffer"`
+	SerialNumberItem                      bool    `json:"SerialNumberItem"`
+	SerialNumberTracking                  bool    `json:"SerialNumberTracking"`
+	SubjectToShelfLifeExpirationDate      bool    `json:"SubjectToShelfLifeExpirationDate"`
+	SubjectToBatchItem                    bool    `json:"SubjectToBatchItem"`
+	ProcurementTime                       int     `json:"ProcurementTime"`
+	DetermineProcurementTimeAutomatically bool    `json:"DetermineProcurementTimeAutomatically"`
+	AdditionalHandlingTime                int     `json:"AdditionalHandlingTime"`
 }
 
 type Dimensions struct {
@@ -118,15 +118,15 @@ type Weights struct {
 }
 
 type Quantities struct {
-	MinimumOrderQuantity                    int                                    `json:"MinimumOrderQuantity"`
+	MinimumOrderQuantity                    float32                                `json:"MinimumOrderQuantity"`
 	MinimumPurchaseQuantityForCustomerGroup []MinimumPurchaseQuantityCustomerGroup `json:"MinimumPurchaseQuantityForCustomerGroup"`
-	PermissibleOrderQuantity                int                                    `json:"PermissibleOrderQuantity"`
+	PermissibleOrderQuantity                float32                                `json:"PermissibleOrderQuantity"`
 }
 
 type MinimumPurchaseQuantityCustomerGroup struct {
 	CustomerGroupID          int     `json:"CustomerGroupId"`
 	PermissibleOrderQuantity float64 `json:"PermissibleOrderQuantity"`
-	MinimumPurchaseQuantity  int     `json:"MinimumPurchaseQuantity"`
+	MinimumPurchaseQuantity  float32 `json:"MinimumPurchaseQuantity"`
 	IsActive                 bool    `json:"IsActive"`
 }
 
@@ -174,4 +174,17 @@ type CreateImageStruct struct {
 	ImageData      string `json:"ImageData"`
 	Filename       string `json:"Filename"`
 	SalesChannelId string `json:"SalesChannelId"`
+}
+
+type GuiItem struct {
+	SKU      string
+	Name     string
+	IsFather bool
+	IsChild  bool
+	Combine  bool
+}
+
+type WItem struct {
+	GuiItem GuiItem
+	GetItem GetItem
 }

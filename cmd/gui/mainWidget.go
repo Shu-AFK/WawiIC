@@ -3,34 +3,39 @@ package gui
 // TODO: Wenn vater oder kind nicht zusammenführen
 
 import (
+	"WawiIC/cmd/wawi"
+	"errors"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
-type Item struct {
-	ID       string
-	Name     string
-	IsFather bool
-	IsChild  bool
-	Combine  bool
-}
-
-func createMainWidget(canvas fyne.Canvas) fyne.CanvasObject {
+func createMainWidget(canvas fyne.Canvas, w fyne.Window) fyne.CanvasObject {
 	searchbar := widget.NewEntry()
 	searchbar.SetPlaceHolder("Artikel...")
 
 	rows := container.NewVBox()
 	scroll := container.NewVScroll(rows)
 
+	mergeButton := widget.NewButton("Zusammenfügen", func() {
+		// TODO: Finish merge button functionality
+		dialog.ShowInformation("Info", "Not implemented", w)
+	})
+	mergeButton.Importance = widget.LowImportance
+	mergeButton.Resize(fyne.NewSize(80, 40))
+
+	buttonContainer := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), mergeButton)
+
 	searchbar.OnSubmitted = func(query string) {
-		onSearch(query, rows, canvas)
+		onSearch(query, rows, canvas, w)
 	}
 
 	content := container.NewBorder(
 		searchbar,
-		nil,
+		buttonContainer,
 		nil,
 		nil,
 		scroll,
@@ -39,40 +44,46 @@ func createMainWidget(canvas fyne.Canvas) fyne.CanvasObject {
 	return content
 }
 
-func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas) {
-	// TODO: Query items from API instead of test items
-	items := []Item{
-		{ID: "1", Name: "Binoculars", IsFather: true, IsChild: false, Combine: false},
-		{ID: "2", Name: "Camera", IsFather: false, IsChild: true, Combine: false},
-		{ID: "3", Name: "Tripod", IsFather: false, IsChild: false, Combine: false},
-	}
-
+func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas, w fyne.Window) {
 	// Clear previous rows
 	rows.Objects = nil
+	rows.Refresh()
+
+	items, err := wawi.GetItems(query, SelectedCategoryID)
+	if errors.Is(err, wawi.NoCategory) {
+		label := widget.NewLabel("Bitte eine Kategorie auswählen um nach Artikeln zu suchen")
+
+		content := container.NewVBox(label)
+		dialog.ShowCustom("Hinweis", "Schließen", content, w)
+
+		return
+	} else if err != nil {
+		dialog.ShowError(err, w)
+		return
+	}
 
 	for _, item := range items {
 		combineCheck := widget.NewCheck("Zusammenfügen", func(checked bool) {
-			if item.IsChild || item.IsFather {
-				item.Combine = checked
+			if item.GuiItem.IsChild || item.GuiItem.IsFather {
+				item.GuiItem.Combine = checked
 			}
 		})
 
-		if item.IsFather || item.IsChild {
+		if item.GuiItem.IsFather || item.GuiItem.IsChild {
 			combineCheck.Disable()
 		}
 
 		row := container.NewHBox(
-			truncatedLabelWithTooltip(item.ID, MaxIdLength, canvas),
-			truncatedLabelWithTooltip(item.Name, MaxNameLength, canvas),
-			createDisabledCheck("Vaterartikel", item.IsFather),
-			createDisabledCheck("Kindartikel", item.IsChild),
+			truncatedLabelWithTooltip(item.GuiItem.SKU, MaxIdLength, canvas),
+			truncatedLabelWithTooltip(item.GuiItem.Name, MaxNameLength, canvas),
+			createDisabledCheck("Vaterartikel", item.GuiItem.IsFather),
+			createDisabledCheck("Kindartikel", item.GuiItem.IsChild),
 			layout.NewSpacer(),
 			combineCheck,
 		)
 
 		rows.Add(row)
 	}
-
 	rows.Refresh()
 }
 
