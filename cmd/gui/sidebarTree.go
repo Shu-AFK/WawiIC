@@ -6,21 +6,21 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func createSidebarTree(categories map[string][]string) *container.Scroll {
+// categories: map[parentID][]childID
+// labels: map[ID]Name
+func createSidebarTree(categories map[string][]string, labels map[string]string) *container.Scroll {
 	getChildIDs := func(uid widget.TreeNodeID) []widget.TreeNodeID {
-		children := categories[string(uid)]
+		children := categories[uid]
 		out := make([]widget.TreeNodeID, len(children))
-
 		for i, child := range children {
 			out[i] = widget.TreeNodeID(child)
 		}
-
 		return out
 	}
 
-	isBrance := func(uid widget.TreeNodeID) bool {
-		_, yes := categories[uid]
-		return yes
+	isBranch := func(uid widget.TreeNodeID) bool {
+		_, exists := categories[uid]
+		return exists
 	}
 
 	create := func(branch bool) fyne.CanvasObject {
@@ -28,9 +28,16 @@ func createSidebarTree(categories map[string][]string) *container.Scroll {
 	}
 
 	update := func(uid widget.TreeNodeID, branch bool, obj fyne.CanvasObject) {
-		obj.(*widget.Label).SetText(uid)
+		if name, ok := labels[uid]; ok {
+			obj.(*widget.Label).SetText(name)
+		} else {
+			obj.(*widget.Label).SetText(uid)
+		}
 	}
 
-	tree := widget.NewTree(getChildIDs, isBrance, create, update)
+	tree := widget.NewTree(getChildIDs, isBranch, create, update)
+
+	tree.Root = "root"
+
 	return container.NewVScroll(tree)
 }

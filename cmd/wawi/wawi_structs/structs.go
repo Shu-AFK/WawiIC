@@ -136,13 +136,13 @@ type DangerousGoods struct {
 }
 
 type CategoryItem struct {
-	ID                  int    `json:"Id"`
-	Name                string `json:"Name"`
-	Description         string `json:"Description"`
-	ParentCategoryID    int    `json:"ParentCategoryId"`
-	Level               int    `json:"Level"`
-	SortNumber          int    `json:"SortNumber"`
-	ActiveSalesChannels string `json:"ActiveSalesChannels"`
+	ID                  int      `json:"Id"`
+	Name                string   `json:"Name"`
+	Description         string   `json:"Description"`
+	ParentCategoryID    int      `json:"ParentCategoryId"`
+	Level               int      `json:"Level"`
+	SortNumber          int      `json:"SortNumber"`
+	ActiveSalesChannels []string `json:"ActiveSalesChannels"`
 }
 
 type CategoryResponse struct {

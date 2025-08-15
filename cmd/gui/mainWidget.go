@@ -1,5 +1,7 @@
 package gui
 
+// TODO: Wenn vater oder kind nicht zusammenführen
+
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -49,16 +51,25 @@ func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas) {
 	rows.Objects = nil
 
 	for _, item := range items {
+		combineCheck := widget.NewCheck("Zusammenfügen", func(checked bool) {
+			if item.IsChild || item.IsFather {
+				item.Combine = checked
+			}
+		})
+
+		if item.IsFather || item.IsChild {
+			combineCheck.Disable()
+		}
+
 		row := container.NewHBox(
 			truncatedLabelWithTooltip(item.ID, MaxIdLength, canvas),
 			truncatedLabelWithTooltip(item.Name, MaxNameLength, canvas),
 			createDisabledCheck("Vaterartikel", item.IsFather),
 			createDisabledCheck("Kindartikel", item.IsChild),
 			layout.NewSpacer(),
-			widget.NewCheck("Zusammenfügen", func(checked bool) {
-				item.Combine = checked
-			}),
+			combineCheck,
 		)
+
 		rows.Add(row)
 	}
 

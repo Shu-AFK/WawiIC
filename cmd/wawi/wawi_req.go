@@ -15,7 +15,7 @@ import (
 
 func QueryItem(itemStruct wawi_structs.QueryItemStruct) ([]wawi_structs.GetItem, error) {
 	var items []wawi_structs.GetItem
-	pageNumber := 0
+	pageNumber := 1
 
 	for {
 		resp, err := queryItemReq(itemStruct, pageNumber)
@@ -59,7 +59,13 @@ func CreateParentItem(item wawi_structs.Item) (*wawi_structs.GetItem, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("create item failed (status %d): %s", resp.StatusCode, string(body))
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		resp.Body.Close()
+
+		return nil, fmt.Errorf("failed to query categories: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -90,7 +96,13 @@ func AssignChildToParent(itemIDParent string, itemIDChild string, variationIDs [
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("failed to assign child(%s) to parent item(%s): %v", itemIDParent, itemIDChild, resp.StatusCode)
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+
+		return fmt.Errorf("failed to query categories: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	return nil
@@ -98,7 +110,7 @@ func AssignChildToParent(itemIDParent string, itemIDChild string, variationIDs [
 
 func QueryCategories(pageSize int) ([]wawi_structs.CategoryItem, error) {
 	var categories []wawi_structs.CategoryItem
-	pageNumber := 0
+	pageNumber := 1
 
 	for {
 		resp, err := queryCategoriesReq(pageSize, pageNumber)
@@ -167,7 +179,13 @@ func CreateItemImage(imageStruct wawi_structs.CreateImageStruct, itemID string) 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("create item image failed (status %d): %s", resp.StatusCode, resp.Status)
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+
+		return fmt.Errorf("failed to query categories: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	return nil
@@ -185,8 +203,13 @@ func queryCategoriesReq(pageSize int, pageNumber int) (*http.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
 		resp.Body.Close()
-		return nil, fmt.Errorf("failed to query categories: %v", resp.StatusCode)
+
+		return nil, fmt.Errorf("failed to query categories: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	return resp, nil
@@ -228,8 +251,13 @@ func queryItemReq(itemStruct wawi_structs.QueryItemStruct, pageNumber int) (*htt
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
 		resp.Body.Close()
-		return nil, fmt.Errorf("status code %d", resp.StatusCode)
+
+		return nil, fmt.Errorf("failed to query categories: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	return resp, nil
@@ -246,9 +274,10 @@ func wawiCreateRequest(method string, url string, body io.Reader) (*http.Respons
 		return nil, fmt.Errorf("API key environment variable not set")
 	}
 
-	req.Header.Set("Authorization", apiKey)
+	req.Header.Set("Authorization", fmt.Sprintf("Wawi %v", apiKey))
 	req.Header.Set("x-appid", defines.AppID)
 	req.Header.Set("x-appversion", defines.Version)
+	req.Header.Set("x-runas", defines.AppID)
 
 	if method == "POST" || method == "PATCH" {
 		req.Header.Set("Content-Type", "application/json")

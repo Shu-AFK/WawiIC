@@ -28,6 +28,7 @@ func postAppRegistration() (*defines.RegistrationResponse, error) {
 	req.Header.Set("X-ChallengeCode", defines.XChallangeCode) // "x-" war zu kurz
 	req.Header.Set("X-AppID", defines.AppID)
 	req.Header.Set("X-AppVersion", defines.Version)
+	req.Header.Set("api-version", defines.APIVersion)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -59,6 +60,8 @@ func waitForRegistrationAcc(registrationID string) (*defines.FetchRegistrationRe
 	}
 
 	req.Header.Set("x-challengecode", defines.XChallangeCode)
+	req.Header.Set("api-version", defines.APIVersion)
+
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)

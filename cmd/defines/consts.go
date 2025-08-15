@@ -1,22 +1,26 @@
 package defines
 
 const (
-	APIBaseURL      = "https://developer.jtl-software.com/_mock/products/erpapi/openapi/"
+	APIBaseURL      = "http://127.0.0.1:5883/api/eazybusiness/"
 	AppID           = "WawiIC/v1"
 	DisplayName     = "WawiIC"
 	Description     = "Artikel zu Vaterartikeln zusammenführen"
 	Version         = "1.0.0"
 	ProviderName    = "Floyd Göttsch"
-	ProviderWebsite = ""
+	ProviderWebsite = "https://www.alpa-industrievertretungen.de/"
 	XChallangeCode  = "wh5x1kgdm2koqsc31rfly3s"
 	APIKeyVarName   = "WAWIIC_APIKEY"
+	APIVersion      = "1.1"
 )
 
 var MandatoryAPIScope = []string{
 	"item.getitem",
+	"category.querycategories",
 	"all.read",
+	"item.queryitemimages",
+	"item.createitemimage",
 	"item.updateitem",
-	"items.write",
+	"item.createitem",
 	"item.assignchilditemtoparent",
 }
 
@@ -40,7 +44,7 @@ type RegistrationResponse struct {
 type FetchRegistrationResponse struct {
 	RequestStatusInfo RequestStatus `json:"RequestStatusInfo"`
 	Token             TokenInfo     `json:"Token"`
-	GrantedScopes     string        `json:"GrantedScopes"`
+	GrantedScopes     []string      `json:"GrantedScopes"`
 }
 
 type RequestStatus struct {
