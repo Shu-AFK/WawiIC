@@ -1,6 +1,7 @@
 package gui
 
-// TODO: Wenn vater oder kind nicht zusammenführen
+// TODO: Filter client side for categories
+// TODO: Filter for child categories
 
 import (
 	"WawiIC/cmd/wawi"
@@ -76,9 +77,9 @@ func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas, w fyne.Win
 		row := container.NewHBox(
 			truncatedLabelWithTooltip(item.GuiItem.SKU, MaxIdLength, canvas),
 			truncatedLabelWithTooltip(item.GuiItem.Name, MaxNameLength, canvas),
+			layout.NewSpacer(),
 			createDisabledCheck("Vaterartikel", item.GuiItem.IsFather),
 			createDisabledCheck("Kindartikel", item.GuiItem.IsChild),
-			layout.NewSpacer(),
 			combineCheck,
 		)
 
