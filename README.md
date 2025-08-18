@@ -1,5 +1,9 @@
 # WawiIC - JTL Wawi Item Combination Tool  
 
+<p align="center">
+  <img src="assets/banner.png" alt="WawiIC Banner" width="100%">
+</p>
+
 ## Overview
 WawiIC is a **Go-based GUI application** designed as an add-on for the **JTL Wawi** system. It simplifies the process of:
 - **Querying and selecting items** from your inventory

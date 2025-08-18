@@ -1,6 +1,9 @@
 package gui
 
 import (
+	_ "embed"
+
+	"github.com/Shu-AFK/WawiIC/assets"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi"
 
 	"fyne.io/fyne/v2"
@@ -11,6 +14,9 @@ import (
 
 func RunGUI() {
 	WawiIC := app.New()
+	iconRes := fyne.NewStaticResource("WawiIC.png", assets.Icon)
+	WawiIC.SetIcon(iconRes)
+
 	w := WawiIC.NewWindow("WawiIC")
 
 	tree, labels, err := wawi.GetCategories(10)
