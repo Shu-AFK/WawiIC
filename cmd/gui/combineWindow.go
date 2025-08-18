@@ -1,8 +1,9 @@
 package gui
 
 import (
-	"WawiIC/cmd/wawi/wawi_structs"
 	"fmt"
+
+	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"

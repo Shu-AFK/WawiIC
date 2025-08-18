@@ -1,9 +1,10 @@
 package wawi
 
 import (
-	"WawiIC/cmd/wawi/wawi_structs"
 	"errors"
 	"fmt"
+
+	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
 
 var NoCategory = errors.New("no category selected")

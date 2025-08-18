@@ -1,7 +1,7 @@
 package gui
 
 import (
-	"WawiIC/cmd/wawi"
+	"github.com/Shu-AFK/WawiIC/cmd/wawi"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"

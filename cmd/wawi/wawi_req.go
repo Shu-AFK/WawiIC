@@ -1,8 +1,6 @@
 package wawi
 
 import (
-	"WawiIC/cmd/defines"
-	"WawiIC/cmd/wawi/wawi_structs"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -11,6 +9,9 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+
+	"github.com/Shu-AFK/WawiIC/cmd/defines"
+	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
 
 func QueryItem(itemStruct wawi_structs.QueryItemStruct) ([]wawi_structs.GetItem, error) {

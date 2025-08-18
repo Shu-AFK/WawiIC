@@ -1,13 +1,14 @@
 package wawi_registration
 
 import (
-	"WawiIC/cmd/defines"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/Shu-AFK/WawiIC/cmd/defines"
 )
 
 // https://developer.jtl-software.com/products/erpapi/openapi/appregistration/authenticationheader_registerappasync

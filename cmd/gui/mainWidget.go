@@ -4,10 +4,11 @@ package gui
 // TODO: Filter for child categories
 
 import (
-	"WawiIC/cmd/helper"
-	"WawiIC/cmd/wawi"
-	"WawiIC/cmd/wawi/wawi_structs"
 	"errors"
+
+	"github.com/Shu-AFK/WawiIC/cmd/helper"
+	"github.com/Shu-AFK/WawiIC/cmd/wawi"
+	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
