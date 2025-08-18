@@ -4,7 +4,9 @@ package gui
 // TODO: Filter for child categories
 
 import (
+	"WawiIC/cmd/helper"
 	"WawiIC/cmd/wawi"
+	"WawiIC/cmd/wawi/wawi_structs"
 	"errors"
 
 	"fyne.io/fyne/v2"
@@ -14,7 +16,9 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func createMainWidget(canvas fyne.Canvas, w fyne.Window) fyne.CanvasObject {
+var Selected []wawi_structs.WItem
+
+func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.CanvasObject {
 	searchbar := widget.NewEntry()
 	searchbar.SetPlaceHolder("Artikel...")
 
@@ -22,9 +26,11 @@ func createMainWidget(canvas fyne.Canvas, w fyne.Window) fyne.CanvasObject {
 	scroll := container.NewVScroll(rows)
 
 	mergeButton := widget.NewButton("Zusammenfügen", func() {
-		// TODO: Finish merge button functionality
-		dialog.ShowInformation("Info", "Not implemented", w)
+		combineW := app.NewWindow("Zusammenfügen")
+
+		CombineWindow(combineW, Selected)
 	})
+
 	mergeButton.Importance = widget.LowImportance
 	mergeButton.Resize(fyne.NewSize(80, 40))
 
@@ -67,6 +73,12 @@ func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas, w fyne.Win
 		combineCheck := widget.NewCheck("Zusammenfügen", func(checked bool) {
 			if item.GuiItem.IsChild || item.GuiItem.IsFather {
 				item.GuiItem.Combine = checked
+			}
+
+			if checked {
+				Selected = append(Selected, item)
+			} else {
+				Selected = helper.FindAndRemoveItem(item, Selected)
 			}
 		})
 

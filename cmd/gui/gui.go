@@ -18,7 +18,7 @@ func RunGUI() {
 		dialog.ShowError(err, w)
 	}
 
-	split := container.NewHSplit(createSidebarTree(tree, labels), createMainWidget(w.Canvas(), w))
+	split := container.NewHSplit(createSidebarTree(tree, labels), createMainWidget(w.Canvas(), WawiIC, w))
 	split.Offset = 0.15
 
 	w.CenterOnScreen()
