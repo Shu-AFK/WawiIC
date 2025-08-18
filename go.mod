@@ -1,4 +1,4 @@
-module WawiIC
+module github.com/Shu-AFK/WawiIC
 
 go 1.24.0
 

@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -187,25 +188,25 @@ func CombineWindow(w fyne.Window, selected []wawi_structs.WItem) {
 
 				tree.Refresh()
 				tree.UnselectAll()
-
-				fmt.Println("Nach Löschung:")
-				fmt.Println(variations)
-				fmt.Println(labels)
 			},
 			w,
 		)
 	})
 
+	btnFinished := widget.NewButton("Fertig", func() {
+		// TODO: Zuordnen von items zu werten
+	})
+
 	scroll := container.NewVScroll(tree)
-	scroll.SetMinSize(fyne.NewSize(400, 400))
+	scroll.SetMinSize(fyne.NewSize(400, 500))
 
 	content := container.NewVBox(
 		scroll,
 		container.NewHBox(btnVariation, btnWert),
-		container.NewHBox(btnEdit, btnDel),
+		container.NewHBox(btnEdit, btnDel, layout.NewSpacer(), btnFinished),
 	)
 
 	w.SetContent(content)
-	w.Resize(fyne.NewSize(400, 500))
+	w.Resize(fyne.NewSize(500, 600))
 	w.Show()
 }
