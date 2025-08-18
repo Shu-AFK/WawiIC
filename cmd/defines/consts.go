@@ -11,6 +11,7 @@ const (
 	XChallangeCode  = "wh5x1kgdm2koqsc31rfly3s"
 	APIKeyVarName   = "WAWIIC_APIKEY"
 	APIVersion      = "1.1"
+	OpenAiApiKeyEnv = "OPENAI_API_KEY"
 )
 
 var MandatoryAPIScope = []string{

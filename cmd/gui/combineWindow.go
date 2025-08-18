@@ -8,11 +8,10 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
-func CombineWindow(w fyne.Window, selected []wawi_structs.WItem) {
+func CombineWindow(w fyne.Window, app fyne.App, selected []wawi_structs.WItem) {
 	variations := map[string][]string{}
 	labels := map[string]string{}
 	id := 1
@@ -194,8 +193,18 @@ func CombineWindow(w fyne.Window, selected []wawi_structs.WItem) {
 		)
 	})
 
+	btnCancel := widget.NewButton("Abbrechen", func() {
+		w.Close()
+	})
+
 	btnFinished := widget.NewButton("Fertig", func() {
-		// TODO: Zuordnen von items zu werten
+		if len(labels) <= len(selected) {
+			dialog.ShowInformation("Achtung!", "Nicht genug Variationen für die ausgewählten Artikel!", w)
+			return
+		}
+
+		newW := app.NewWindow("Artikel zuordnen")
+		CreateAssignWindow(newW, variations, labels, selected)
 	})
 
 	scroll := container.NewVScroll(tree)
@@ -204,7 +213,8 @@ func CombineWindow(w fyne.Window, selected []wawi_structs.WItem) {
 	content := container.NewVBox(
 		scroll,
 		container.NewHBox(btnVariation, btnWert),
-		container.NewHBox(btnEdit, btnDel, layout.NewSpacer(), btnFinished),
+		container.NewHBox(btnEdit, btnDel),
+		container.NewHBox(btnCancel, btnFinished),
 	)
 
 	w.SetContent(content)

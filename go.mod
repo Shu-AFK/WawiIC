@@ -2,7 +2,10 @@ module github.com/Shu-AFK/WawiIC
 
 go 1.24.0
 
-require fyne.io/fyne/v2 v2.6.2
+require (
+	fyne.io/fyne/v2 v2.6.2
+	github.com/openai/openai-go/v2 v2.0.2
+)
 
 require (
 	fyne.io/systray v1.11.0 // indirect
@@ -31,6 +34,10 @@ require (
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
+	github.com/tidwall/gjson v1.14.4 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
 	golang.org/x/image v0.24.0 // indirect
 	golang.org/x/net v0.35.0 // indirect

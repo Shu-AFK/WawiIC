@@ -27,9 +27,14 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 	scroll := container.NewVScroll(rows)
 
 	mergeButton := widget.NewButton("Zusammenfügen", func() {
+		if len(Selected) <= 1 {
+			dialog.ShowInformation("Achtung!", "Bitte wähle als erstes 2 oder mehr Artikel aus, welche du zusammenfügen willst.", w)
+			return
+		}
+
 		combineW := app.NewWindow("Zusammenfügen")
 
-		CombineWindow(combineW, Selected)
+		CombineWindow(combineW, app, Selected)
 	})
 
 	mergeButton.Importance = widget.LowImportance

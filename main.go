@@ -1,11 +1,13 @@
 package main
 
 import (
-	"WawiIC/cmd/defines"
-	"WawiIC/cmd/gui"
-	"WawiIC/cmd/wawi/wawi_registration"
 	"os"
 	"os/exec"
+
+	"github.com/Shu-AFK/WawiIC/cmd/defines"
+	"github.com/Shu-AFK/WawiIC/cmd/gui"
+	"github.com/Shu-AFK/WawiIC/cmd/openai"
+	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_registration"
 )
 
 func main() {
@@ -27,6 +29,11 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+	}
+
+	err := openai.CheckForAPIKey()
+	if err != nil {
+		panic(err)
 	}
 
 	gui.RunGUI()
