@@ -73,9 +73,11 @@ func CombineWindow(w fyne.Window, app fyne.App, selected []wawi_structs.WItem) {
 			variations[actualRoot] = append(variations[actualRoot], variationID)
 
 			tree.Refresh()
+			tree.Select(variationID)
 			popup.Hide()
 		}
 		popup.Show()
+		w.Canvas().Focus(entry)
 	})
 
 	btnWert := widget.NewButton("Wert anlegen", func() {
@@ -108,6 +110,7 @@ func CombineWindow(w fyne.Window, app fyne.App, selected []wawi_structs.WItem) {
 			popup.Hide()
 		}
 		popup.Show()
+		w.Canvas().Focus(entry)
 	})
 
 	btnEdit := widget.NewButton("Name bearbeiten", func() {
@@ -150,6 +153,7 @@ func CombineWindow(w fyne.Window, app fyne.App, selected []wawi_structs.WItem) {
 			popup.Hide()
 		}
 		popup.Show()
+		w.Canvas().Focus(entry)
 	})
 
 	btnDel := widget.NewButton("Löschen", func() {
@@ -204,7 +208,7 @@ func CombineWindow(w fyne.Window, app fyne.App, selected []wawi_structs.WItem) {
 		}
 
 		newW := app.NewWindow("Artikel zuordnen")
-		CreateAssignWindow(newW, variations, labels, selected)
+		createAssignmentWindow(newW, selected, variations, labels)
 	})
 
 	scroll := container.NewVScroll(tree)

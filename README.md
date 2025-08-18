@@ -18,7 +18,7 @@ Perfect for managing product variants efficiently!
 ## Prerequisites
 - **JTL Wawi API** (tested on version [1.1])
 - **Go** (≥ 1.24 recommended)
-- **OpenAI API Key** (for description optimization) 
+- **OpenAI API Key** (for description optimization. The token has to be saved in an environment variable named: "OPENAI_API_KEY") 
 - **C Compiler (gcc)** (for Fyne GUI)
 
 ## Installation
