@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Shu-AFK/WawiIC/cmd/gui/gui_structs"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
 
@@ -80,4 +81,12 @@ func GetCategories(pageSize int) (map[string][]string, map[string]string, error)
 	}
 
 	return tree, labels, nil
+}
+
+func HandleAssingDone(combinations []gui_structs.Combination, selectedCombinationIndex int) {
+	/*productNames := make([]string, 0, len(combinations))
+	variations := make([]string, 0, len(combinations))
+	oldSKUs := make([]string, 0, len(combinations))
+
+	userPrompt := openai.GetUserPrompt()*/
 }

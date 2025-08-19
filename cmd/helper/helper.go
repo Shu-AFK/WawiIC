@@ -1,6 +1,8 @@
 package helper
 
-import "github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
+import (
+	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
+)
 
 func FindAndRemoveItem(item wawi_structs.WItem, selected []wawi_structs.WItem) []wawi_structs.WItem {
 	for i, val := range selected {

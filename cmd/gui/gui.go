@@ -19,7 +19,7 @@ func RunGUI() {
 
 	w := WawiIC.NewWindow("WawiIC")
 
-	tree, labels, err := wawi.GetCategories(10)
+	tree, labels, err := wawi.GetCategories(50)
 	if err != nil {
 		dialog.ShowError(err, w)
 	}
