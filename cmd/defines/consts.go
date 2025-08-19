@@ -23,6 +23,7 @@ var MandatoryAPIScope = []string{
 	"item.updateitem",
 	"item.createitem",
 	"item.assignchilditemtoparent",
+	"item.createitemvariation",
 }
 
 type AppData struct {

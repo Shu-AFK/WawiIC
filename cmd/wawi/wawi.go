@@ -1,10 +1,13 @@
 package wawi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/Shu-AFK/WawiIC/cmd/gui/gui_structs"
+	"github.com/Shu-AFK/WawiIC/cmd/openai"
+	"github.com/Shu-AFK/WawiIC/cmd/openai/openai_structs"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
 
@@ -83,10 +86,99 @@ func GetCategories(pageSize int) (map[string][]string, map[string]string, error)
 	return tree, labels, nil
 }
 
-func HandleAssingDone(combinations []gui_structs.Combination, selectedCombinationIndex int) {
-	/*productNames := make([]string, 0, len(combinations))
-	variations := make([]string, 0, len(combinations))
+func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int) error {
+	productNames := make([]string, 0, len(combinations))
+	variationLabels := "["
 	oldSKUs := make([]string, 0, len(combinations))
 
-	userPrompt := openai.GetUserPrompt()*/
+	for _, c := range combinations {
+		productNames = append(productNames, c.Item.GuiItem.Name)
+		variationLabels += fmt.Sprintf("[%s], ", c.Label)
+		oldSKUs = append(oldSKUs, c.Item.GuiItem.SKU)
+	}
+	variationLabels = variationLabels[:len(variationLabels)-2]
+	variationLabels += "]"
+
+	userPrompt := openai.GetUserPrompt(
+		productNames,
+		combinations[selectedCombinationIndex].Item.GetItem.Description,
+		variationLabels,
+		oldSKUs,
+	)
+
+	ctx := context.Background()
+	productSEO, err := openai.MakeRequest(ctx, userPrompt)
+	if err != nil {
+		return err
+	}
+
+	parentItem := createParentStruct(productSEO, combinations[selectedCombinationIndex].Item.GetItem)
+	item, err := CreateParentItem(parentItem)
+	if err != nil {
+		return err
+	}
+	if item.IsActive == false {
+		return errors.New("item is not active")
+	}
+
+	// TODO: No possibility to query image data to add to item
+	/*
+		allImages := make([]wawi_structs.ItemImageReq, 0, len(combinations))
+		images, err := QueryItemImages(string(rune(combinations[selectedCombinationIndex].Item.GetItem.ID)))
+		if err != nil {
+			return err
+		}
+		allImages = append(allImages, *images...)
+
+		for _, c := range combinations {
+			if c.Item.GetItem.ID == combinations[selectedCombinationIndex].Item.GetItem.ID {
+				continue
+			}
+
+			images, err := QueryItemImages(string(rune(c.Item.GetItem.ID)))
+			if err != nil {
+				return err
+			}
+			allImages = append(allImages, *images...)
+		}
+
+		for _, image := range allImages {
+			err := CreateItemImage(wawi_structs.CreateImageStruct{
+				ImageData: ,
+				Filename: ,
+				SalesChannelId: ,
+			}, string(rune(item.ID)))
+
+			if err != nil {
+				return err
+			}
+		}
+	*/
+
+	return nil
+}
+
+func createParentStruct(seo *openai_structs.ProductSEO, mainItem wawi_structs.GetItem) wawi_structs.Item {
+	// TODO: Check what fields are actually necessary
+	parentItem := wawi_structs.Item{
+		SKU:                 seo.NewSKU,
+		ManufacturerID:      mainItem.ManufacturerID,
+		ResponsiblePersonID: mainItem.ResponsiblePersonID,
+		Categories:          mainItem.Categories,
+		Name:                seo.CombinedArticleName,
+		Description:         seo.Description,
+		ShortDescription:    seo.ShortDescription,
+		Identifiers: wawi_structs.Identifiers{
+			ManufacturerNumber: mainItem.Identifiers.ManufacturerNumber,
+		},
+		ActiveSalesChannels: mainItem.ActiveSalesChannels,
+		SortNumber:          mainItem.SortNumber,
+		Annotation:          mainItem.Annotation,
+		CountryOfOrigin:     mainItem.CountryOfOrigin,
+		AllowNegativeStock:  false,
+		DangerousGoods:      mainItem.DangerousGoods,
+		// TODO: PriceListActive?
+	}
+
+	return parentItem
 }

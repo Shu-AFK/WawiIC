@@ -188,3 +188,27 @@ type WItem struct {
 	GuiItem GuiItem
 	GetItem GetItem
 }
+
+type CreateVariationStruct struct {
+	Name         string        `json:"Name"`
+	Type         int           `json:"Type"`
+	Translations []Translation `json:"Translations"`
+}
+
+type ReturnVariationCreateStruct struct {
+	Id           int           `json:"Id"`
+	ItemId       int           `json:"ItemId"`
+	Name         string        `json:"Name"`
+	Type         int           `json:"Type"`
+	Translations []Translation `json:"Translations"`
+}
+
+type Translation struct {
+	LanguageIso string `json:"LanguageIso"`
+	Name        string `json:"Name"`
+}
+
+type CreateVariationValueStruct struct {
+	Name         string        `json:"Name"`
+	Translations []Translation `json:"Translations"`
+}

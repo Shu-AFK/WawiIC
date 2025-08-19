@@ -10,8 +10,15 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/Shu-AFK/WawiIC/cmd/gui/gui_structs"
+	"github.com/Shu-AFK/WawiIC/cmd/wawi"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
+
+type valueCombo struct {
+	ids       []string
+	label     string
+	origIndex int
+}
 
 func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variations map[string][]string, labels map[string]string) {
 	selectedIndex := -1
@@ -23,16 +30,9 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 	w.Resize(fyne.NewSize(800, 500))
 
 	itemList := widget.NewList(
-		func() int {
-			return len(availableItems)
-		},
-		func() fyne.CanvasObject {
-			return widget.NewLabel("template")
-		},
-		func(id widget.ListItemID, obj fyne.CanvasObject) {
-			text := fmt.Sprintf("%s (SKU: %s)", availableItems[id].GuiItem.Name, availableItems[id].GuiItem.SKU)
-			obj.(*widget.Label).SetText(text)
-		},
+		itemListLengthFn(&availableItems),
+		labelTemplate,
+		itemListUpdateFn(&availableItems),
 	)
 	itemList.OnSelected = func(id widget.ListItemID) {
 		selectedIndex = id
@@ -54,48 +54,7 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 
 	branchIDs := variations[actualRoot]
 
-	getValues := func(branchID string) []string {
-		return variations[branchID]
-	}
-
-	type valueCombo struct {
-		ids       []string
-		label     string
-		origIndex int
-	}
-
-	var allCombos []valueCombo
-	var buildCombos func(idx int, picked []string)
-
-	buildCombos = func(idx int, picked []string) {
-		if idx == len(branchIDs) {
-			parts := make([]string, len(picked))
-			for i, id := range picked {
-				if name, ok := labels[id]; ok {
-					parts[i] = name
-				} else {
-					parts[i] = id
-				}
-			}
-			allCombos = append(allCombos, valueCombo{
-				ids:       append([]string(nil), picked...),
-				label:     strings.Join(parts, " "),
-				origIndex: len(allCombos),
-			})
-			return
-		}
-		values := getValues(branchIDs[idx])
-		if len(values) == 0 {
-			buildCombos(idx+1, picked)
-			return
-		}
-		for _, v := range values {
-			buildCombos(idx+1, append(picked, v))
-		}
-	}
-
-	allCombos = allCombos[:0]
-	buildCombos(0, nil)
+	allCombos := buildAllCombos(variations, labels, branchIDs)
 
 	availableCombos := append([]valueCombo(nil), allCombos...)
 
@@ -107,11 +66,9 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 
 	selectedComboIndex := -1
 	variationList := widget.NewList(
-		func() int { return len(availableCombos) },
-		func() fyne.CanvasObject { return widget.NewLabel("template") },
-		func(i widget.ListItemID, o fyne.CanvasObject) {
-			o.(*widget.Label).SetText(availableCombos[i].label)
-		},
+		variationListLengthFn(&availableCombos),
+		labelTemplate,
+		variationListUpdateFn(&availableCombos),
 	)
 	variationList.OnSelected = func(i widget.ListItemID) {
 		selectedComboIndex = i
@@ -119,51 +76,14 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 	variationScroll := container.NewVScroll(variationList)
 
 	assignmentList := widget.NewList(
-		func() int {
-			return len(combinedItems)
-		},
-		func() fyne.CanvasObject {
-			return widget.NewLabel("template")
-		},
-		func(id widget.ListItemID, obj fyne.CanvasObject) {
-			c := combinedItems[id]
-			name := labels[c.VariationID]
-			if name == "" {
-				name = c.VariationID
-			}
-			text := fmt.Sprintf("%s (SKU: %s): %s", c.Item.GuiItem.Name, c.Item.GuiItem.SKU, name)
-			obj.(*widget.Label).SetText(text)
-		},
+		assignmentListLengthFn(&combinedItems),
+		labelTemplate,
+		assignmentListUpdateFn(&combinedItems, labels),
 	)
 	assignmentList.OnSelected = func(id widget.ListItemID) {
 		selectedCombinationIndex = id
 	}
 	assignmentScroll := container.NewVScroll(assignmentList)
-
-	containsComboID := func(combinedID string) bool {
-		for _, c := range availableCombos {
-			if strings.Join(c.ids, "|") == combinedID {
-				return true
-			}
-		}
-		return false
-	}
-
-	insertComboByOrder := func(vc valueCombo) {
-		if containsComboID(strings.Join(vc.ids, "|")) {
-			return
-		}
-		pos := len(availableCombos)
-		for i, c := range availableCombos {
-			if vc.origIndex < c.origIndex {
-				pos = i
-				break
-			}
-		}
-		availableCombos = append(availableCombos, valueCombo{})
-		copy(availableCombos[pos+1:], availableCombos[pos:])
-		availableCombos[pos] = vc
-	}
 
 	assignBtn := widget.NewButton("Zusammenfügen", func() {
 		if selectedIndex < 0 || selectedComboIndex < 0 {
@@ -190,6 +110,7 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 
 		combinedItems = append(combinedItems, gui_structs.Combination{
 			Item:        item,
+			Label:       labels[combinedID],
 			VariationID: combinedID,
 			ParentID:    "",
 			ParentIndex: -1,
@@ -214,18 +135,16 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 		itemList.Refresh()
 
 		if vc, ok := comboByID[c.VariationID]; ok {
-			insertComboByOrder(vc)
+			insertComboByOrder(&availableCombos, vc)
 			variationList.Refresh()
 		}
 	})
 
 	cancelBtn := widget.NewButton("Abbrechen", func() {
-		// Restore all items
 		for _, c := range combinedItems {
 			availableItems = append(availableItems, c.Item)
-			// Restore all removed combos
 			if vc, ok := comboByID[c.VariationID]; ok {
-				insertComboByOrder(vc)
+				insertComboByOrder(&availableCombos, vc)
 			}
 		}
 
@@ -252,6 +171,13 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 			if !b {
 				return
 			}
+
+			err := wawi.HandleAssignDone(combinedItems, selectedCombinationIndex)
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
+				return
+			}
+
 			w.Close()
 		}, w)
 	})
@@ -280,10 +206,10 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 		variationScroll,
 	)
 
-	mid := container.NewHSplit(centerPanel, rightPanel)
-	mid.SetOffset(0.5)
+	right := container.NewHSplit(centerPanel, rightPanel)
+	right.SetOffset(0.5)
 
-	up := container.NewHSplit(leftPanel, mid)
+	up := container.NewHSplit(leftPanel, right)
 	up.SetOffset(0.33)
 
 	content := container.NewVSplit(up, container.NewHBox(assignBtn, unassignBtn, cancelBtn, layout.NewSpacer(), doneBtn))
@@ -291,4 +217,99 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 
 	w.SetContent(content)
 	w.Show()
+}
+
+func itemListLengthFn(items *[]wawi_structs.WItem) func() int {
+	return func() int { return len(*items) }
+}
+
+func labelTemplate() fyne.CanvasObject { return widget.NewLabel("template") }
+
+func itemListUpdateFn(items *[]wawi_structs.WItem) func(id widget.ListItemID, obj fyne.CanvasObject) {
+	return func(id widget.ListItemID, obj fyne.CanvasObject) {
+		text := fmt.Sprintf("%s (SKU: %s)", (*items)[id].GuiItem.Name, (*items)[id].GuiItem.SKU)
+		obj.(*widget.Label).SetText(text)
+	}
+}
+
+func variationListLengthFn(combos *[]valueCombo) func() int {
+	return func() int { return len(*combos) }
+}
+func variationListUpdateFn(combos *[]valueCombo) func(id widget.ListItemID, obj fyne.CanvasObject) {
+	return func(i widget.ListItemID, o fyne.CanvasObject) {
+		o.(*widget.Label).SetText((*combos)[i].label)
+	}
+}
+
+func assignmentListLengthFn(items *[]gui_structs.Combination) func() int {
+	return func() int { return len(*items) }
+}
+func assignmentListUpdateFn(items *[]gui_structs.Combination, labels map[string]string) func(id widget.ListItemID, obj fyne.CanvasObject) {
+	return func(id widget.ListItemID, obj fyne.CanvasObject) {
+		c := (*items)[id]
+		name := labels[c.VariationID]
+		if name == "" {
+			name = c.VariationID
+		}
+		text := fmt.Sprintf("%s (SKU: %s): %s", c.Item.GuiItem.Name, c.Item.GuiItem.SKU, name)
+		obj.(*widget.Label).SetText(text)
+	}
+}
+
+func buildAllCombos(variations map[string][]string, labels map[string]string, branchIDs []string) []valueCombo {
+	var all []valueCombo
+	var rec func(idx int, picked []string)
+	rec = func(idx int, picked []string) {
+		if idx == len(branchIDs) {
+			parts := make([]string, len(picked))
+			for i, id := range picked {
+				if name, ok := labels[id]; ok {
+					parts[i] = name
+				} else {
+					parts[i] = id
+				}
+			}
+			all = append(all, valueCombo{
+				ids:       append([]string(nil), picked...),
+				label:     strings.Join(parts, " "),
+				origIndex: len(all),
+			})
+			return
+		}
+		values := variations[branchIDs[idx]]
+		if len(values) == 0 {
+			rec(idx+1, picked)
+			return
+		}
+		for _, v := range values {
+			rec(idx+1, append(picked, v))
+		}
+	}
+	rec(0, nil)
+	return all
+}
+
+func containsComboID(availableCombos []valueCombo, combinedID string) bool {
+	for _, c := range availableCombos {
+		if strings.Join(c.ids, "|") == combinedID {
+			return true
+		}
+	}
+	return false
+}
+
+func insertComboByOrder(availableCombos *[]valueCombo, vc valueCombo) {
+	if containsComboID(*availableCombos, strings.Join(vc.ids, "|")) {
+		return
+	}
+	pos := len(*availableCombos)
+	for i, c := range *availableCombos {
+		if vc.origIndex < c.origIndex {
+			pos = i
+			break
+		}
+	}
+	*availableCombos = append(*availableCombos, valueCombo{})
+	copy((*availableCombos)[pos+1:], (*availableCombos)[pos:])
+	(*availableCombos)[pos] = vc
 }

@@ -192,6 +192,75 @@ func CreateItemImage(imageStruct wawi_structs.CreateImageStruct, itemID string) 
 	return nil
 }
 
+func CreateVariations(itemID string, variationName string) (*wawi_structs.ReturnVariationCreateStruct, error) {
+	reqURL := defines.APIBaseURL + "items/" + itemID + "/variations"
+	reqStruct := wawi_structs.CreateVariationStruct{
+		Name:         variationName,
+		Type:         0,
+		Translations: []wawi_structs.Translation{},
+	}
+	reqBody, err := json.Marshal(reqStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := wawiCreateRequest("POST", reqURL, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		resp.Body.Close()
+
+		return nil, fmt.Errorf("failed to create variation: %v (%v)", resp.StatusCode, string(errorBody))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	var bodyJson wawi_structs.ReturnVariationCreateStruct
+	err = json.Unmarshal(body, &bodyJson)
+	if err != nil {
+		return nil, err
+	}
+
+	return &bodyJson, nil
+}
+
+func CreateVariationValue(itemID string, variationID string, name string) error {
+	reqUrl := defines.APIBaseURL + "items/" + itemID + "/variations/" + variationID + "/values"
+	reqBody, err := json.Marshal(wawi_structs.CreateVariationValueStruct{
+		Name: name,
+	})
+	if err != nil {
+		return err
+	}
+
+	resp, err := wawiCreateRequest("POST", reqUrl, bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("failed to create variation value: %v (%v)", resp.StatusCode, string(errorBody))
+	}
+
+	return nil
+}
+
 func queryCategoriesReq(pageSize int, pageNumber int) (*http.Response, error) {
 	if pageSize == 0 {
 		return nil, fmt.Errorf("pageSize must be greater than zero")

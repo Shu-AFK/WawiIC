@@ -35,13 +35,13 @@ const (
 		"\n}"
 )
 
-func GetUserPrompt(productNames []string, oldProductDescription string, variations []string, oldSKUs []string) string {
+func GetUserPrompt(productNames []string, oldProductDescription string, variations string, oldSKUs []string) string {
 	names := strings.Join(productNames, ", ")
 	skus := strings.Join(oldSKUs, ", ")
 
 	userPrompt := fmt.Sprintf(
 		"Hier sind die Produktinformationen:\n\n"+
-			"Artikelname: %s\n"+
+			"Artikelnamen: %s\n"+
 			"Vorherige Produktbeschreibung: %s\n"+
 			"Artikelvariationen: %s\n"+
 			"SKU(s): %s\n\n"+
