@@ -146,6 +146,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	}
 
 	// TODO: Create variations
+	// TODO: Update SEO data (via patch description)
 
 	return nil
 }
