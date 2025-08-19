@@ -1,0 +1,196 @@
+<!-- TODO: Fix lightbox for screenshots -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WawiIC — JTL Wawi Item Combination Tool</title>
+  <meta name="description" content="WawiIC — A modern tool to combine and manage JTL Wawi items with a clean GUI, assignment and combination flows, with AI assistance." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <canvas id="fx-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-header">
+    <nav class="nav">
+      <a href="#home" class="brand">
+        <img src="../assets/WawiIC.png" alt="WawiIC Logo" />
+        <span>WawiIC</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#screenshots">Screens</a>
+      </div>
+      <button class="nav-toggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </nav>
+  </header>
+
+  <main id="home" class="hero">
+    <div class="hero-content">
+      <p class="eyebrow reveal">JTL Wawi companion</p>
+      <h1 class="reveal">
+        WawiIC<br />
+        <span class="gradient-text">Item Combination Tool</span>
+      </h1>
+      <p class="subhead reveal">
+        Combine, assign, and manage complex JTL Wawi items with confidence. A clean GUI, guided flows,
+        with AI assistance for a faster workflow.
+      </p>
+      <div class="cta reveal">
+        <a href="https://github.com/Shu-AFK/WawiIC" target="_blank" rel="noopener" class="btn btn-outline">View on GitHub</a>
+      </div>
+      <div class="hero-badges reveal">
+        <span class="chip">Black & White UI</span>
+        <span class="chip">Smooth Scrolling</span>
+        <span class="chip">Color Accents</span>
+      </div>
+    </div>
+    <div class="hero-media reveal" data-parallax data-parallax-speed="0.3" role="img" aria-label="WawiIC preview">
+      <img src="../assets/banner.png" alt="WawiIC Banner" />
+      <div class="glow-border"></div>
+    </div>
+  </main>
+
+  <section id="features" class="section">
+    <div class="section-head">
+      <h2 class="reveal">Features</h2>
+      <p class="section-subtitle reveal">Grounded in the codebase: assign, combine, register, and automate.</p>
+    </div>
+    <div class="features-grid">
+      <article class="card reveal">
+        <div class="icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M7 7h10v10H7z" stroke="currentColor"/><path d="M3 3h6v6H3zM15 15h6v6h-6z" stroke="currentColor"/></svg>
+        </div>
+        <h3>Combine Items</h3>
+        <p>Use dedicated “Combine” workflows to create bundled or composite items aligned with JTL Wawi structures.</p>
+        <small>Ref: cmd/gui/combineWindow.go</small>
+      </article>
+      <article class="card reveal">
+        <div class="icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M4 12h16M4 6h16M4 18h16" stroke="currentColor"/></svg>
+        </div>
+        <h3>Assign & Map</h3>
+        <p>Assign items to the new your own choice of variations for a more organised online shop</p>
+        <small>Ref: cmd/gui/assignWindow.go</small>
+      </article>
+      <article class="card reveal">
+        <div class="icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor"/><path d="M8 12h8M12 8v8" stroke="currentColor"/></svg>
+        </div>
+        <h3>Clean GUI</h3>
+        <p>A desktop-like layout built in Go with a modern feel.</p>
+        <small>Ref: cmd/gui/*.go</small>
+      </article>
+      <article class="card reveal">
+        <div class="icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M6 7v10a3 3 0 003 3h6a3 3 0 003-3V7" stroke="currentColor"/></svg>
+        </div>
+        <h3>JTL Wawi API Integration</h3>
+        <p>Handles registration and requests to Wawi endpoints in a structured way for reliable operations.</p>
+        <small>Ref: cmd/wawi/wawi.go, wawi_req.go, wawi_registration/</small>
+      </article>
+      <article class="card reveal">
+        <div class="icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v14H4z" stroke="currentColor"/><path d="M4 9h16" stroke="currentColor"/></svg>
+        </div>
+        <h3>Config-Driven</h3>
+        <p>Use a central configuration to standardize environments and behavior.</p>
+        <small>Ref: CONFIG.md, cmd/wawi/load_config.go</small>
+      </article>
+      <article class="card reveal">
+        <div class="icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 12h18" stroke="currentColor"/><circle cx="12" cy="12" r="9" stroke="currentColor"/></svg>
+        </div>
+        <h3>AI Assistance</h3>
+        <p>OpenAI-powered helpers to generate better descriptions and automate your workflow.</p>
+        <small>Ref: cmd/openai/*.go</small>
+      </article>
+    </div>
+  </section>
+
+  <section id="how-it-works" class="section section-alt">
+    <div class="section-head">
+      <h2 class="reveal">How it works</h2>
+      <p class="section-subtitle reveal">A simple end-to-end flow for item combinations.</p>
+    </div>
+    <ol class="steps">
+      <li class="step reveal" data-parallax data-parallax-speed="0.1">
+        <h4>1. Configure</h4>
+        <p>Set category and shop details in the config, aligning with your JTL Wawi setup.</p>
+      </li>
+      <li class="step reveal" data-parallax data-parallax-speed="0.15">
+        <h4>2. Save your OpenAI key in an environment variable.</h4>
+        <p>Generate your API Key and save it as "OPENAI_API_KEY"</p>
+      </li>
+      <li class="step reveal" data-parallax data-parallax-speed="0.2">
+        <h4>3. Connect</h4>
+        <p>Register the app based using your admin panel, following the JTL Wawi documentation and by starting the app.</p>
+      </li>
+      <li class="step reveal" data-parallax data-parallax-speed="0.25">
+        <h4>4. Search and Select</h4>
+        <p>Search for items you would like to combine</p>
+      </li>
+      <li class="step reveal" data-parallax data-parallax-speed="0.3">
+        <h4>5. Assign and Combine</h4>
+        <p>Create variations and assign your items to them.</p>
+      </li>
+      <li class="step reveal" data-parallax data-parallax-speed="0.35">
+        <h4>6. Let WawiIC do the rest</h4>
+        <p>Using the JTL Wawi api and the power of ai, lean back and let the magic happen.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="screenshots" class="section">
+      <div class="section-head">
+          <h2 class="reveal">Screens</h2>
+          <p class="section-subtitle reveal">A glance at the interface and structure.</p>
+      </div>
+      <div class="media-grid">
+          <figure class="media-card reveal" data-parallax data-parallax-speed="0.2">
+              <img src="../assets/app_screenshots/Screenshot%201.png" alt="WawiIC Assign Window" />
+              <figcaption>Item overview</figcaption>
+          </figure>
+          <figure class="media-card reveal" data-parallax data-parallax-speed="0.12">
+              <img src="../assets/app_screenshots/Screenshot%202.png" alt="WawiIC Combine Window" />
+              <figcaption>Create variations</figcaption>
+          </figure>
+          <figure class="media-card reveal" data-parallax data-parallax-speed="0.12">
+              <img src="../assets/app_screenshots/Screenshot%203.png" alt="WawiIC Combine Window" />
+              <figcaption>Assign and Combine items to variations</figcaption>
+          </figure>
+      </div>
+  </section>
+  <!-- Lightbox overlay for screenshots -->
+  <div id="lightbox" class="lightbox" aria-hidden="true" role="dialog" aria-label="Screenshot preview">
+      <button class="lightbox-close" aria-label="Close preview">×</button>
+      <img class="lightbox-img" alt="" />
+  </div>
+
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="brandline">
+        <img src="../assets/WawiIC.png" alt="WawiIC Logo" />
+        <strong>WawiIC</strong>
+        <span class="dot"></span>
+        <span>JTL Wawi Item Combination Tool</span>
+      </div>
+      <div class="links">
+        <a href="https://github.com/Shu-AFK/WawiIC" target="_blank" rel="noopener">GitHub</a>
+        <a href="#features">Features</a>
+        <a href="#get-started">Get Started</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
