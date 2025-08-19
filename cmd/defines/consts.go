@@ -12,6 +12,7 @@ const (
 	APIKeyVarName   = "WAWIIC_APIKEY"
 	APIVersion      = "1.1"
 	OpenAiApiKeyEnv = "OPENAI_API_KEY"
+	ConfigPath      = "config/config.json"
 )
 
 var MandatoryAPIScope = []string{

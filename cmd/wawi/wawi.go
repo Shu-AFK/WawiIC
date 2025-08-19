@@ -121,39 +121,31 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		return errors.New("item is not active")
 	}
 
-	// TODO: No possibility to query image data to add to item
-	/*
-		allImages := make([]wawi_structs.ItemImageReq, 0, len(combinations))
-		images, err := QueryItemImages(string(rune(combinations[selectedCombinationIndex].Item.GetItem.ID)))
+	var images []wawi_structs.CreateImageStruct
+	imageBuffer, err := GetImagesFromItem(combinations[selectedCombinationIndex].Item.GetItem)
+	if err != nil {
+		return err
+	}
+	images = append(images, imageBuffer...)
+	for _, i := range combinations {
+		if i.Item.GetItem.SKU == combinations[selectedCombinationIndex].Item.GuiItem.SKU {
+			continue
+		}
+		imageBuffer, err = GetImagesFromItem(i.Item.GetItem)
 		if err != nil {
 			return err
 		}
-		allImages = append(allImages, *images...)
+		images = append(images, imageBuffer...)
+	}
 
-		for _, c := range combinations {
-			if c.Item.GetItem.ID == combinations[selectedCombinationIndex].Item.GetItem.ID {
-				continue
-			}
-
-			images, err := QueryItemImages(string(rune(c.Item.GetItem.ID)))
-			if err != nil {
-				return err
-			}
-			allImages = append(allImages, *images...)
+	for _, image := range images {
+		err = CreateItemImage(image, string(rune(item.ID)))
+		if err != nil {
+			return err
 		}
+	}
 
-		for _, image := range allImages {
-			err := CreateItemImage(wawi_structs.CreateImageStruct{
-				ImageData: ,
-				Filename: ,
-				SalesChannelId: ,
-			}, string(rune(item.ID)))
-
-			if err != nil {
-				return err
-			}
-		}
-	*/
+	// TODO: Create variations
 
 	return nil
 }
