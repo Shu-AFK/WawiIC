@@ -1,7 +1,6 @@
 package gui
 
-// TODO: Filter client side for categories
-// TODO: Filter for child categories
+// TODO: Filter for child categories not working
 
 import (
 	"errors"
@@ -20,6 +19,8 @@ import (
 var Selected []wawi_structs.WItem
 
 func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.CanvasObject {
+	var prevSearch string
+
 	searchbar := widget.NewEntry()
 	searchbar.SetPlaceHolder("Artikel...")
 
@@ -33,6 +34,10 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 		}
 
 		combineW := app.NewWindow("Zusammenfügen")
+		combineW.SetOnClosed(func() {
+			Selected = Selected[:0]
+			onSearch(prevSearch, rows, canvas, w)
+		})
 
 		CombineWindow(combineW, app, Selected)
 	})
@@ -43,6 +48,7 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 	buttonContainer := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), mergeButton)
 
 	searchbar.OnSubmitted = func(query string) {
+		prevSearch = query
 		onSearch(query, rows, canvas, w)
 	}
 

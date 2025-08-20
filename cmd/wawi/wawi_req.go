@@ -343,6 +343,7 @@ func CreateVariationValue(itemID string, variationID string, name string) (*wawi
 	return &respJSON, nil
 }
 
+// TODO: Fix UpdateDescription function
 func UpdateDescription(itemID string, SEO openai_structs.ProductSEO, salesChannelId string) error {
 	reqUrl := defines.APIBaseURL + "items/" + itemID + "/descriptions/" + salesChannelId + "/de"
 	updateBody := wawi_structs.UpdateMetaDesc{
