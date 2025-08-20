@@ -282,6 +282,9 @@ body {
     color: var(--muted);
     border-top: 1px solid var(--border);
 }
+.media-section {
+    padding-top: 6rem;
+}
 
 /* Lightbox */
 .lightbox {
