@@ -172,14 +172,33 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 				return
 			}
 
-			err := wawi.HandleAssignDone(combinedItems, selectedCombinationIndex, variations, labels)
-			if err != nil {
-				dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
-				fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
-				return
-			}
+			spinner := widget.NewProgressBarInfinite()
+			waitDlg := dialog.NewCustomWithoutButtons(
+				"Bitte warten",
+				container.NewVBox(
+					widget.NewLabel("Vorgang läuft…"),
+					spinner,
+				),
+				w,
+			)
+			waitDlg.Show()
 
-			w.Close()
+			go func() {
+				err := wawi.HandleAssignDone(combinedItems, selectedCombinationIndex, variations, labels)
+
+				fyne.Do(func() {
+					waitDlg.Hide()
+
+					if err != nil {
+						dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
+						fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
+						return
+					}
+
+					w.Close()
+				})
+
+			}()
 		}, w)
 	})
 
