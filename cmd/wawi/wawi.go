@@ -125,31 +125,38 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		return errors.New("item is not active")
 	}
 
-	var images []wawi_structs.CreateImageStruct
-	imageBuffer, err := GetImagesFromItem(combinations[selectedCombinationIndex].Item.GetItem)
+	err = SetItemActiveSalesChannels(strconv.Itoa(item.ID), combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels)
 	if err != nil {
 		return err
 	}
-	images = append(images, imageBuffer...)
-	for _, i := range combinations {
-		if i.Item.GetItem.SKU == combinations[selectedCombinationIndex].Item.GuiItem.SKU {
-			continue
-		}
-		imageBuffer, err = GetImagesFromItem(i.Item.GetItem)
+
+	/*
+		var images []wawi_structs.CreateImageStruct
+		imageBuffer, err := GetImagesFromItem(combinations[selectedCombinationIndex].Item.GetItem)
 		if err != nil {
 			return err
 		}
 		images = append(images, imageBuffer...)
-	}
-
-	for _, image := range images {
-		err = CreateItemImage(image, string(rune(item.ID)))
-		if err != nil {
-			return err
+		for _, i := range combinations {
+			if i.Item.GetItem.SKU == combinations[selectedCombinationIndex].Item.GuiItem.SKU {
+				continue
+			}
+			imageBuffer, err = GetImagesFromItem(i.Item.GetItem)
+			if err != nil {
+				return err
+			}
+			images = append(images, imageBuffer...)
 		}
-	}
 
-	for _, salesChannel := range item.ActiveSalesChannels {
+		for _, image := range images {
+			err = CreateItemImage(image, string(rune(item.ID)))
+			if err != nil {
+				return err
+			}
+		}
+	*/
+
+	for _, salesChannel := range combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels {
 		err := UpdateDescription(strconv.Itoa(item.ID), *productSEO, salesChannel)
 		if err != nil {
 			return err
@@ -211,16 +218,16 @@ func createParentStruct(seo *openai_structs.ProductSEO, mainItem wawi_structs.Ge
 		Name:                seo.CombinedArticleName,
 		Description:         seo.Description,
 		ShortDescription:    seo.ShortDescription,
-		ActiveSalesChannels: mainItem.ActiveSalesChannels,
-		Annotation:          mainItem.Annotation,
-		Added:               ts,
-		Changed:             ts,
-		ReleasedOnDate:      ts,
-		CountryOfOrigin:     mainItem.CountryOfOrigin,
-		DangerousGoods:      PtrIfSet(mainItem.DangerousGoods),
-		Taric:               "",
-		SearchTerms:         "",
-		PriceListActive:     false,
+		// ActiveSalesChannels: mainItem.ActiveSalesChannels,
+		Annotation:      mainItem.Annotation,
+		Added:           ts,
+		Changed:         ts,
+		ReleasedOnDate:  ts,
+		CountryOfOrigin: mainItem.CountryOfOrigin,
+		DangerousGoods:  PtrIfSet(mainItem.DangerousGoods),
+		Taric:           "",
+		SearchTerms:     "",
+		PriceListActive: false,
 	}
 	// TODO: PriceListActive?
 

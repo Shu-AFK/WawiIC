@@ -86,6 +86,55 @@ func CreateParentItem(item wawi_structs.ItemCreate) (*wawi_structs.GetItem, erro
 	return &respJSON, nil
 }
 
+func SetItemActiveSalesChannels(itemID string, channels []string) error {
+	reqUrl := defines.APIBaseURL + "items/" + itemID
+
+	variants := []any{}
+
+	if len(channels) == 1 {
+		variants = append(variants, map[string]any{
+			"ActiveSalesChannels": channels[0],
+		})
+	}
+
+	variants = append(variants, map[string]any{
+		"ActiveSalesChannels": channels,
+	})
+
+	variants = append(variants, map[string]any{
+		"SalesChannelIds": channels,
+	})
+
+	var lastErr error
+	for i, body := range variants {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("marshal variant %d failed: %w", i+1, err)
+		}
+
+		resp, err := wawiCreateRequest("PATCH", reqUrl, bytes.NewBuffer(jsonBody))
+		if err != nil {
+			lastErr = fmt.Errorf("http error variant %d: %w", i+1, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		respBody, _ := io.ReadAll(resp.Body)
+
+		switch resp.StatusCode {
+		case http.StatusCreated:
+			return nil
+		case http.StatusBadRequest:
+			lastErr = fmt.Errorf("variant %d: 400 Bad Request: %s", i+1, string(respBody))
+			continue
+		default:
+			return fmt.Errorf("variant %d: %s: %s", i+1, resp.Status, string(respBody))
+		}
+	}
+
+	return lastErr
+}
+
 func AssignChildToParent(itemIDParent string, itemIDChild string, variationIDs []string) error {
 	reqURL := defines.APIBaseURL + "items/" + itemIDParent + "/children/" + itemIDChild
 	jsonBody, err := json.Marshal(variationIDs)

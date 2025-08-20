@@ -258,11 +258,11 @@ type ReturnVariationValueCreateStruct struct {
 }
 
 type UpdateMetaDesc struct {
-	Name               string `json:"Name"`
-	Description        string `json:"Description"`
-	ShortDescription   string `json:"ShortDescription"`
-	SeoPath            string `json:"SeoPath"`
-	SeoMetaDescription string `json:"SeoMetaDescription"`
-	SeoTitleTag        string `json:"SeoTitleTag"`
-	SeoMetaKeywords    string `json:"SeoMetaKeywords"`
+	Name               string `json:"Name,omitempty"`
+	Description        string `json:"Description,omitempty"`
+	ShortDescription   string `json:"ShortDescription,omitempty"`
+	SeoPath            string `json:"SeoPath,omitempty"`
+	SeoMetaDescription string `json:"SeoMetaDescription,omitempty"`
+	SeoTitleTag        string `json:"SeoTitleTag,omitempty"`
+	SeoMetaKeywords    string `json:"SeoMetaKeywords,omitempty"`
 }
