@@ -16,15 +16,16 @@ const (
 )
 
 var MandatoryAPIScope = []string{
-	"item.getitem",
 	"category.querycategories",
 	"all.read",
+	"item.getitem",
 	"item.queryitemimages",
 	"item.createitemimage",
 	"item.updateitem",
 	"item.createitem",
 	"item.assignchilditemtoparent",
 	"item.createitemvariation",
+	"item.createitemvariationvalue",
 }
 
 type AppData struct {

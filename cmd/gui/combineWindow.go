@@ -209,6 +209,7 @@ func CombineWindow(w fyne.Window, app fyne.App, selected []wawi_structs.WItem) {
 
 		newW := app.NewWindow("Artikel zuordnen")
 		createAssignmentWindow(newW, selected, variations, labels)
+		w.Close()
 	})
 
 	scroll := container.NewVScroll(tree)

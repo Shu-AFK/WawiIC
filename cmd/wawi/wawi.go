@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/Shu-AFK/WawiIC/cmd/gui/gui_structs"
 	"github.com/Shu-AFK/WawiIC/cmd/openai"
@@ -86,7 +90,7 @@ func GetCategories(pageSize int) (map[string][]string, map[string]string, error)
 	return tree, labels, nil
 }
 
-func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int) error {
+func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int, variations map[string][]string, labels map[string]string) error {
 	productNames := make([]string, 0, len(combinations))
 	variationLabels := "["
 	oldSKUs := make([]string, 0, len(combinations))
@@ -145,33 +149,120 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		}
 	}
 
-	// TODO: Create variations
-	// TODO: Update SEO data (via patch description)
+	for _, salesChannel := range item.ActiveSalesChannels {
+		err := UpdateDescription(strconv.Itoa(item.ID), *productSEO, salesChannel)
+		if err != nil {
+			return err
+		}
+	}
+
+	variationTree := BuildVariationLabelIndex(variations, labels)
+	for parent, children := range variationTree {
+		parentVariation, err := CreateVariations(strconv.Itoa(item.ID), parent)
+		if err != nil {
+			return err
+		}
+
+		for _, childName := range children {
+			childVar, err := CreateVariationValue(strconv.Itoa(item.ID), strconv.Itoa(parentVariation.Id), childName)
+			if err != nil {
+				return err
+			}
+
+			for _, combination := range combinations {
+				name, ok := childNameFromVariationID(combination.VariationID, labels)
+				if !ok {
+					return fmt.Errorf("could not find name for variation %s", combination.VariationID)
+				}
+				if name == childName {
+					var variationIDList []string
+					variationIDList = append(variationIDList, strconv.Itoa(childVar.Id))
+
+					err := AssignChildToParent(strconv.Itoa(item.ID), strconv.Itoa(combination.Item.GetItem.ID), variationIDList)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
 
 	return nil
 }
 
-func createParentStruct(seo *openai_structs.ProductSEO, mainItem wawi_structs.GetItem) wawi_structs.Item {
+func PtrIfSet[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
+}
+
+func createParentStruct(seo *openai_structs.ProductSEO, mainItem wawi_structs.GetItem) wawi_structs.ItemCreate {
 	// TODO: Check what fields are actually necessary
-	parentItem := wawi_structs.Item{
+	ts := time.Now().UTC().Format(time.RFC3339)
+
+	parentItem := wawi_structs.ItemCreate{
 		SKU:                 seo.NewSKU,
-		ManufacturerID:      mainItem.ManufacturerID,
-		ResponsiblePersonID: mainItem.ResponsiblePersonID,
+		ManufacturerID:      PtrIfSet(mainItem.ManufacturerID),
+		ResponsiblePersonID: PtrIfSet(mainItem.ResponsiblePersonID),
+		IsActive:            true,
 		Categories:          mainItem.Categories,
 		Name:                seo.CombinedArticleName,
 		Description:         seo.Description,
 		ShortDescription:    seo.ShortDescription,
-		Identifiers: wawi_structs.Identifiers{
-			ManufacturerNumber: mainItem.Identifiers.ManufacturerNumber,
-		},
 		ActiveSalesChannels: mainItem.ActiveSalesChannels,
-		SortNumber:          mainItem.SortNumber,
 		Annotation:          mainItem.Annotation,
+		Added:               ts,
+		Changed:             ts,
+		ReleasedOnDate:      ts,
 		CountryOfOrigin:     mainItem.CountryOfOrigin,
-		AllowNegativeStock:  false,
-		DangerousGoods:      mainItem.DangerousGoods,
-		// TODO: PriceListActive?
+		DangerousGoods:      PtrIfSet(mainItem.DangerousGoods),
+		Taric:               "",
+		SearchTerms:         "",
+		PriceListActive:     false,
 	}
+	// TODO: PriceListActive?
 
 	return parentItem
+}
+
+func BuildVariationLabelIndex(variations map[string][]string, labels map[string]string) map[string][]string {
+	out := make(map[string][]string)
+
+	for parentID, childIDs := range variations {
+		parentLabel, ok := labels[parentID]
+		if !ok || parentLabel == "" {
+			continue
+		}
+
+		seen := make(map[string]struct{})
+		for _, cid := range childIDs {
+			childLabel, ok := labels[cid]
+			if !ok || childLabel == "" {
+				continue
+			}
+			if _, dup := seen[childLabel]; dup {
+				continue
+			}
+			seen[childLabel] = struct{}{}
+			out[parentLabel] = append(out[parentLabel], childLabel)
+		}
+
+		if len(out[parentLabel]) > 1 {
+			sort.Strings(out[parentLabel])
+		}
+	}
+	delete(out, "Variationen")
+	return out
+}
+
+func childNameFromVariationID(variationID string, labels map[string]string) (string, bool) {
+	parts := strings.Split(variationID, "|")
+	if len(parts) == 0 {
+		return "", false
+	}
+	childID := strings.TrimSpace(parts[len(parts)-1])
+	name, ok := labels[childID]
+	return name, ok
 }

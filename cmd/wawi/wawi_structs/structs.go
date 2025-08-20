@@ -58,6 +58,44 @@ type Item struct {
 	AvailabilityID      int            `json:"AvailabilityId"`
 }
 
+type ItemCreate struct {
+	SKU                 string          `json:"SKU"`
+	ManufacturerID      *int            `json:"ManufacturerId,omitempty"`
+	ResponsiblePersonID *int            `json:"ResponsiblePersonId,omitempty"`
+	IsActive            bool            `json:"IsActive"`
+	Categories          []Category      `json:"Categories,omitempty"`
+	Name                string          `json:"Name"`
+	Description         string          `json:"Description,omitempty"`
+	ShortDescription    string          `json:"ShortDescription,omitempty"`
+	Identifiers         *Identifiers    `json:"Identifiers,omitempty"`
+	Components          []Component     `json:"Components,omitempty"`
+	ChildItems          []string        `json:"ChildItems,omitempty"`
+	ParentItemID        *int            `json:"ParentItemId,omitempty"`
+	ItemPriceData       *ItemPriceData  `json:"ItemPriceData,omitempty"`
+	ActiveSalesChannels []string        `json:"ActiveSalesChannels,omitempty"`
+	SortNumber          *int            `json:"SortNumber,omitempty"`
+	Annotation          string          `json:"Annotation,omitempty"`
+	Added               string          `json:"Added,omitempty"`
+	Changed             string          `json:"Changed,omitempty"`
+	ReleasedOnDate      string          `json:"ReleasedOnDate,omitempty"`
+	StorageOptions      *StorageOptions `json:"StorageOptions,omitempty"`
+	CountryOfOrigin     string          `json:"CountryOfOrigin,omitempty"`
+	ConditionID         *int            `json:"ConditionId,omitempty"`
+	ShippingClassID     *int            `json:"ShippingClassId,omitempty"`
+	ProductGroupID      *int            `json:"ProductGroupId,omitempty"`
+	TaxClassID          *int            `json:"TaxClassId,omitempty"`
+	Dimensions          *Dimensions     `json:"Dimensions,omitempty"`
+	Weights             *Weights        `json:"Weights,omitempty"`
+	AllowNegativeStock  *bool           `json:"AllowNegativeStock,omitempty"`
+	Quantities          *Quantities     `json:"Quantities,omitempty"`
+	DangerousGoods      *DangerousGoods `json:"DangerousGoods,omitempty"`
+	Taric               string          `json:"Taric,omitempty"`
+	SearchTerms         string          `json:"SearchTerms,omitempty"`
+	PriceListActive     bool            `json:"PriceListActive"`
+	IgnoreDiscounts     *bool           `json:"IgnoreDiscounts,omitempty"`
+	AvailabilityID      *int            `json:"AvailabilityId,omitempty"`
+}
+
 type GetItem struct {
 	ID int `json:"Id"`
 	Item
@@ -211,4 +249,20 @@ type Translation struct {
 type CreateVariationValueStruct struct {
 	Name         string        `json:"Name"`
 	Translations []Translation `json:"Translations"`
+}
+
+type ReturnVariationValueCreateStruct struct {
+	Id           int           `json:"Id"`
+	Name         string        `json:"Name"`
+	Translations []Translation `json:"Translations,omitempty"`
+}
+
+type UpdateMetaDesc struct {
+	Name               string `json:"Name"`
+	Description        string `json:"Description"`
+	ShortDescription   string `json:"ShortDescription"`
+	SeoPath            string `json:"SeoPath"`
+	SeoMetaDescription string `json:"SeoMetaDescription"`
+	SeoTitleTag        string `json:"SeoTitleTag"`
+	SeoMetaKeywords    string `json:"SeoMetaKeywords"`
 }

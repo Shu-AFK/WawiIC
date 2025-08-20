@@ -172,9 +172,10 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 				return
 			}
 
-			err := wawi.HandleAssignDone(combinedItems, selectedCombinationIndex)
+			err := wawi.HandleAssignDone(combinedItems, selectedCombinationIndex, variations, labels)
 			if err != nil {
 				dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
+				fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
 				return
 			}
 

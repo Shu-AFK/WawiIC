@@ -10,8 +10,10 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/Shu-AFK/WawiIC/cmd/defines"
+	"github.com/Shu-AFK/WawiIC/cmd/openai/openai_structs"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
 
@@ -47,7 +49,7 @@ func QueryItem(itemStruct wawi_structs.QueryItemStruct) ([]wawi_structs.GetItem,
 	return items, nil
 }
 
-func CreateParentItem(item wawi_structs.Item) (*wawi_structs.GetItem, error) {
+func CreateParentItem(item wawi_structs.ItemCreate) (*wawi_structs.GetItem, error) {
 	reqUrl := defines.APIBaseURL + "items?disableAutomaticWorkflows=true"
 	body, err := json.Marshal(item)
 	if err != nil {
@@ -248,27 +250,74 @@ func CreateVariations(itemID string, variationName string) (*wawi_structs.Return
 	return &bodyJson, nil
 }
 
-func CreateVariationValue(itemID string, variationID string, name string) error {
+func CreateVariationValue(itemID string, variationID string, name string) (*wawi_structs.ReturnVariationValueCreateStruct, error) {
 	reqUrl := defines.APIBaseURL + "items/" + itemID + "/variations/" + variationID + "/values"
 	reqBody, err := json.Marshal(wawi_structs.CreateVariationValueStruct{
 		Name: name,
+		Translations: []wawi_structs.Translation{
+			{
+				LanguageIso: "EN",
+				Name:        name,
+			},
+		},
 	})
+
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp, err := wawiCreateRequest("POST", reqUrl, bytes.NewReader(reqBody))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
 		errorBody, err := io.ReadAll(resp.Body)
 		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to create variation value: %v (%v)", resp.StatusCode, string(errorBody))
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var respJSON wawi_structs.ReturnVariationValueCreateStruct
+	err = json.Unmarshal(respBody, &respJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	return &respJSON, nil
+}
+
+func UpdateDescription(itemID string, SEO openai_structs.ProductSEO, salesChannelId string) error {
+	reqUrl := defines.APIBaseURL + "items/" + itemID + "/descriptions/" + salesChannelId + "/de"
+	updateBody := wawi_structs.UpdateMetaDesc{
+		SeoMetaDescription: SEO.SEODescription,
+		SeoTitleTag:        SEO.CombinedArticleName,
+		SeoMetaKeywords:    strings.Join(SEO.SEOKeywords, ", "),
+	}
+
+	reqBody, err := json.Marshal(updateBody)
+	if err != nil {
+		return err
+	}
+	resp, err := wawiCreateRequest("PATCH", reqUrl, bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
 			return err
 		}
-		return fmt.Errorf("failed to create variation value: %v (%v)", resp.StatusCode, string(errorBody))
+		return fmt.Errorf("failed to update description: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	return nil
