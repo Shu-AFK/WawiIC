@@ -156,44 +156,132 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		}
 	*/
 
-	for _, salesChannel := range combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels {
-		err := UpdateDescription(strconv.Itoa(item.ID), *productSEO, salesChannel)
-		if err != nil {
-			return err
-		}
+	err = UpdateDescription(strconv.Itoa(item.ID), *productSEO)
+	if err != nil {
+		return err
 	}
 
 	variationTree := BuildVariationLabelIndex(variations, labels)
-	for parent, children := range variationTree {
-		parentVariation, err := CreateVariations(strconv.Itoa(item.ID), parent)
+	var variationOrder []string
+	valueIDByLabel := map[string]map[string]string{}
+
+	for parentName, children := range variationTree {
+		parentVariation, err := CreateVariations(strconv.Itoa(item.ID), parentName)
 		if err != nil {
 			return err
 		}
 
+		variationOrder = append(variationOrder, parentName)
+		if _, ok := valueIDByLabel[parentName]; !ok {
+			valueIDByLabel[parentName] = map[string]string{}
+		}
+
 		for _, childName := range children {
-			childVar, err := CreateVariationValue(strconv.Itoa(item.ID), strconv.Itoa(parentVariation.Id), childName)
+			v, err := CreateVariationValue(strconv.Itoa(item.ID), strconv.Itoa(parentVariation.Id), childName)
 			if err != nil {
 				return err
 			}
-
-			for _, combination := range combinations {
-				name, ok := childNameFromVariationID(combination.VariationID, labels)
-				if !ok {
-					return fmt.Errorf("could not find name for variation %s", combination.VariationID)
-				}
-				if name == childName {
-					var variationIDList []string
-					variationIDList = append(variationIDList, strconv.Itoa(childVar.Id))
-
-					err := AssignChildToParent(strconv.Itoa(item.ID), strconv.Itoa(combination.Item.GetItem.ID), variationIDList)
-					if err != nil {
-						return err
-					}
-				}
-			}
+			valueIDByLabel[parentName][childName] = strconv.Itoa(v.Id)
 		}
 	}
 
+	// Helper: parse a label like "Größe: 150ml, Farbe: Blau" or "[Farbe] Blau"
+	parseNamesByLabel := func(raw string) map[string]string {
+		out := map[string]string{}
+		s := strings.TrimSpace(raw)
+		s = strings.Trim(s, "[]")
+		parts := strings.Split(s, ",")
+		for _, p := range parts {
+			seg := strings.TrimSpace(p)
+			if seg == "" {
+				continue
+			}
+			var key, val string
+			if i := strings.IndexAny(seg, ":="); i >= 0 {
+				key = strings.TrimSpace(seg[:i])
+				val = strings.TrimSpace(seg[i+1:])
+			} else {
+				// Try bracketed "[Farbe] Blau" or "Farbe Blau"
+				fields := strings.Fields(seg)
+				if len(fields) >= 2 {
+					key = strings.Trim(fields[0], "[]")
+					val = strings.TrimSpace(seg[len(fields[0]):])
+				}
+			}
+			key = strings.Trim(key, "[]- ")
+			val = strings.Trim(val, "[]- ")
+			if key != "" && val != "" {
+				out[key] = val
+			}
+		}
+		return out
+	}
+
+	// Helper: case-insensitive substring check
+	containsCI := func(haystack, needle string) bool {
+		return strings.Contains(strings.ToLower(haystack), strings.ToLower(needle))
+	}
+
+	for _, combination := range combinations {
+		// First, parse what we can from the combination label
+		namesByLabel := parseNamesByLabel(combination.Label)
+
+		var comboValueIDs []string
+		for _, vLabel := range variationOrder {
+			name := namesByLabel[vLabel]
+
+			// Fallback 1: try to detect which child value appears in the label text
+			if name == "" {
+				if children, ok := variationTree[vLabel]; ok {
+					candidates := []string{}
+					for _, childVal := range children {
+						if containsCI(combination.Label, childVal) {
+							candidates = append(candidates, childVal)
+						}
+					}
+					if len(candidates) == 1 {
+						name = candidates[0]
+					}
+				}
+			}
+
+			// Fallback 2: try to detect value from the combination item name
+			if name == "" {
+				if children, ok := variationTree[vLabel]; ok {
+					candidates := []string{}
+					for _, childVal := range children {
+						if containsCI(combination.Item.GuiItem.Name, childVal) {
+							candidates = append(candidates, childVal)
+						}
+					}
+					if len(candidates) == 1 {
+						name = candidates[0]
+					}
+				}
+			}
+
+			// Fallback 3: if the variation has only one value, use it
+			if name == "" {
+				if children, ok := variationTree[vLabel]; ok && len(children) == 1 {
+					name = children[0]
+				}
+			}
+
+			id, ok := valueIDByLabel[vLabel][name]
+			if !ok {
+				return fmt.Errorf("missing value ID for %s=%s", vLabel, name)
+			}
+			comboValueIDs = append(comboValueIDs, id)
+		}
+
+		if err := AssignChildToParent(
+			strconv.Itoa(item.ID),
+			strconv.Itoa(combination.Item.GetItem.ID),
+			comboValueIDs,
+		); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -206,7 +294,6 @@ func PtrIfSet[T comparable](v T) *T {
 }
 
 func createParentStruct(seo *openai_structs.ProductSEO, mainItem wawi_structs.GetItem) wawi_structs.ItemCreate {
-	// TODO: Check what fields are actually necessary
 	ts := time.Now().UTC().Format(time.RFC3339)
 
 	parentItem := wawi_structs.ItemCreate{
@@ -218,7 +305,9 @@ func createParentStruct(seo *openai_structs.ProductSEO, mainItem wawi_structs.Ge
 		Name:                seo.CombinedArticleName,
 		Description:         seo.Description,
 		ShortDescription:    seo.ShortDescription,
-		// ActiveSalesChannels: mainItem.ActiveSalesChannels,
+		Identifiers: &wawi_structs.Identifiers{
+			ManufacturerNumber: PtrIfSet(removeUpToFirstDash(seo.NewSKU)),
+		},
 		Annotation:      mainItem.Annotation,
 		Added:           ts,
 		Changed:         ts,
@@ -229,9 +318,16 @@ func createParentStruct(seo *openai_structs.ProductSEO, mainItem wawi_structs.Ge
 		SearchTerms:     "",
 		PriceListActive: false,
 	}
-	// TODO: PriceListActive?
 
 	return parentItem
+}
+
+func removeUpToFirstDash(s string) string {
+	_, after, found := strings.Cut(s, "-")
+	if found {
+		return after
+	}
+	return s
 }
 
 func BuildVariationLabelIndex(variations map[string][]string, labels map[string]string) map[string][]string {

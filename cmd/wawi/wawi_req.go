@@ -15,7 +15,34 @@ import (
 	"github.com/Shu-AFK/WawiIC/cmd/defines"
 	"github.com/Shu-AFK/WawiIC/cmd/openai/openai_structs"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
+	gtf "github.com/bas24/googletranslatefree"
 )
+
+func QuerySalesChannels() ([]wawi_structs.SalesChannel, error) {
+	var channels []wawi_structs.SalesChannel
+
+	url := fmt.Sprintf("%s/salesChannels", defines.APIBaseURL)
+	resp, err := wawiCreateRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GET /salesChannels failed: %s", body)
+	}
+
+	if err := json.Unmarshal(body, &channels); err != nil {
+		return nil, err
+	}
+
+	return channels, nil
+}
 
 func QueryItem(itemStruct wawi_structs.QueryItemStruct) ([]wawi_structs.GetItem, error) {
 	var items []wawi_structs.GetItem
@@ -69,7 +96,7 @@ func CreateParentItem(item wawi_structs.ItemCreate) (*wawi_structs.GetItem, erro
 		}
 		resp.Body.Close()
 
-		return nil, fmt.Errorf("failed to query categories: %v (%v)", resp.StatusCode, string(errorBody))
+		return nil, fmt.Errorf("failed to create parent item: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -86,53 +113,32 @@ func CreateParentItem(item wawi_structs.ItemCreate) (*wawi_structs.GetItem, erro
 	return &respJSON, nil
 }
 
-func SetItemActiveSalesChannels(itemID string, channels []string) error {
+func SetItemActiveSalesChannels(itemID string, _ []string) error {
 	reqUrl := defines.APIBaseURL + "items/" + itemID
 
-	variants := []any{}
-
-	if len(channels) == 1 {
-		variants = append(variants, map[string]any{
-			"ActiveSalesChannels": channels[0],
-		})
+	payload := map[string]any{
+		"ActiveSalesChannels": []string{"9-7-1-2"},
 	}
 
-	variants = append(variants, map[string]any{
-		"ActiveSalesChannels": channels,
-	})
-
-	variants = append(variants, map[string]any{
-		"SalesChannelIds": channels,
-	})
-
-	var lastErr error
-	for i, body := range variants {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("marshal variant %d failed: %w", i+1, err)
-		}
-
-		resp, err := wawiCreateRequest("PATCH", reqUrl, bytes.NewBuffer(jsonBody))
-		if err != nil {
-			lastErr = fmt.Errorf("http error variant %d: %w", i+1, err)
-			continue
-		}
-		defer resp.Body.Close()
-
-		respBody, _ := io.ReadAll(resp.Body)
-
-		switch resp.StatusCode {
-		case http.StatusCreated:
-			return nil
-		case http.StatusBadRequest:
-			lastErr = fmt.Errorf("variant %d: 400 Bad Request: %s", i+1, string(respBody))
-			continue
-		default:
-			return fmt.Errorf("variant %d: %s: %s", i+1, resp.Status, string(respBody))
-		}
+	jsonBody, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal request failed: %w", err)
 	}
 
-	return lastErr
+	resp, err := wawiCreateRequest("PATCH", reqUrl, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return fmt.Errorf("http error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated, http.StatusNoContent:
+		return nil
+	default:
+		return fmt.Errorf("activate sales channel failed: %s: %s", resp.Status, string(respBody))
+	}
 }
 
 func AssignChildToParent(itemIDParent string, itemIDChild string, variationIDs []string) error {
@@ -155,7 +161,7 @@ func AssignChildToParent(itemIDParent string, itemIDChild string, variationIDs [
 		}
 		resp.Body.Close()
 
-		return fmt.Errorf("failed to query categories: %v (%v)", resp.StatusCode, string(errorBody))
+		return fmt.Errorf("failed to assign children to parent: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	return nil
@@ -250,7 +256,7 @@ func CreateItemImage(imageStruct wawi_structs.CreateImageStruct, itemID string) 
 		}
 		resp.Body.Close()
 
-		return fmt.Errorf("failed to query categories: %v (%v)", resp.StatusCode, string(errorBody))
+		return fmt.Errorf("failed to create item image: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	return nil
@@ -300,13 +306,18 @@ func CreateVariations(itemID string, variationName string) (*wawi_structs.Return
 }
 
 func CreateVariationValue(itemID string, variationID string, name string) (*wawi_structs.ReturnVariationValueCreateStruct, error) {
+	nameEn, err := gtf.Translate(name, "de", "en")
+	if err != nil {
+		return nil, err
+	}
+
 	reqUrl := defines.APIBaseURL + "items/" + itemID + "/variations/" + variationID + "/values"
 	reqBody, err := json.Marshal(wawi_structs.CreateVariationValueStruct{
 		Name: name,
 		Translations: []wawi_structs.Translation{
 			{
 				LanguageIso: "EN",
-				Name:        name,
+				Name:        nameEn,
 			},
 		},
 	})
@@ -343,8 +354,9 @@ func CreateVariationValue(itemID string, variationID string, name string) (*wawi
 	return &respJSON, nil
 }
 
-// TODO: Fix UpdateDescription function
-func UpdateDescription(itemID string, SEO openai_structs.ProductSEO, salesChannelId string) error {
+func UpdateDescription(itemID string, SEO openai_structs.ProductSEO) error {
+	// Wawi Description
+	salesChannelId := "1-1-1"
 	reqUrl := defines.APIBaseURL + "items/" + itemID + "/descriptions/" + salesChannelId + "/de"
 	updateBody := wawi_structs.UpdateMetaDesc{
 		SeoMetaDescription: SEO.SEODescription,
@@ -439,7 +451,7 @@ func queryItemReq(itemStruct wawi_structs.QueryItemStruct, pageNumber int) (*htt
 		}
 		resp.Body.Close()
 
-		return nil, fmt.Errorf("failed to query categories: %v (%v)", resp.StatusCode, string(errorBody))
+		return nil, fmt.Errorf("failed to query item: %v (%v)", resp.StatusCode, string(errorBody))
 	}
 
 	return resp, nil
@@ -475,8 +487,9 @@ func wawiCreateRequest(method string, url string, body io.Reader) (*http.Respons
 
 func findShopUrlItem(item wawi_structs.GetItem) (string, error) {
 	for _, c := range item.Categories {
+		category := strings.Split(c.Name, "->")[0]
 		for _, s := range config {
-			if c.Name == s.Category {
+			if c.Name == category {
 				return s.ShopWebsite, nil
 			}
 		}

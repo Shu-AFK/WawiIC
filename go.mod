@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	fyne.io/fyne/v2 v2.6.2
+	github.com/bas24/googletranslatefree v0.0.0-20231117033553-f5859fe54d30
 	github.com/openai/openai-go/v2 v2.0.2
 )
 

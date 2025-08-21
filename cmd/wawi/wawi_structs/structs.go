@@ -31,7 +31,7 @@ type Item struct {
 	ShortDescription    string         `json:"ShortDescription"`
 	Identifiers         Identifiers    `json:"Identifiers"`
 	Components          []Component    `json:"Components"`
-	ChildItems          []string       `json:"ChildItems"`
+	ChildItems          []int          `json:"ChildItems"`
 	ParentItemID        int            `json:"ParentItemId"`
 	ItemPriceData       ItemPriceData  `json:"ItemPriceData"`
 	ActiveSalesChannels []string       `json:"ActiveSalesChannels"`
@@ -107,13 +107,13 @@ type Category struct {
 }
 
 type Identifiers struct {
-	Gtin               string   `json:"Gtin"`
-	ManufacturerNumber string   `json:"ManufacturerNumber"`
-	ISBN               string   `json:"ISBN"`
-	UPC                string   `json:"UPC"`
-	AmazonFnsku        string   `json:"AmazonFnsku"`
-	Asins              []string `json:"Asins"`
-	OwnIdentifier      string   `json:"OwnIdentifier"`
+	Gtin               *string   `json:"Gtin,omitempty"`
+	ManufacturerNumber *string   `json:"ManufacturerNumber,omitempty"`
+	ISBN               *string   `json:"ISBN,omitempty"`
+	UPC                *string   `json:"UPC,omitempty"`
+	AmazonFnsku        *string   `json:"AmazonFnsku,omitempty"`
+	Asins              *[]string `json:"Asins,omitempty"`
+	OwnIdentifier      *string   `json:"OwnIdentifier,omitempty"`
 }
 
 type Component struct {
@@ -265,4 +265,22 @@ type UpdateMetaDesc struct {
 	SeoMetaDescription string `json:"SeoMetaDescription,omitempty"`
 	SeoTitleTag        string `json:"SeoTitleTag,omitempty"`
 	SeoMetaKeywords    string `json:"SeoMetaKeywords,omitempty"`
+}
+
+type SalesChannel struct {
+	Id               string `json:"Id"`
+	Type             int    `json:"Type"`
+	Name             string `json:"Name"`
+	DocumentationUrl string `json:"DocumentationUrl"`
+	ItemCapabilities struct {
+		Descriptions         bool `json:"Descriptions"`
+		OnlineShopActivation bool `json:"OnlineShopActivation"`
+		Prices               bool `json:"Prices"`
+		SpecialPrices        bool `json:"SpecialPrices"`
+		Images               bool `json:"Images"`
+	} `json:"ItemCapabilities"`
+	CategoryCapabilities struct {
+		Descriptions         bool `json:"Descriptions"`
+		OnlineShopActivation bool `json:"OnlineShopActivation"`
+	} `json:"CategoryCapabilities"`
 }

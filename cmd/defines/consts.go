@@ -27,6 +27,7 @@ var MandatoryAPIScope = []string{
 	"item.createitemvariation",
 	"item.createitemvariationvalue",
 	"item.updateitemdescription",
+	"item.createitemdescription",
 }
 
 type AppData struct {
