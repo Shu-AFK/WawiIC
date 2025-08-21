@@ -4,6 +4,7 @@ package gui
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Shu-AFK/WawiIC/cmd/helper"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi"
@@ -17,6 +18,8 @@ import (
 )
 
 var Selected []wawi_structs.WItem
+
+var FatherSKU string
 
 func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.CanvasObject {
 	var prevSearch string
@@ -37,6 +40,11 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 		combineW.SetOnClosed(func() {
 			Selected = Selected[:0]
 			onSearch(prevSearch, rows, canvas, w)
+
+			if FatherSKU != "" {
+				dialog.ShowInformation("Erfolg", fmt.Sprintf("Der Vather Artikel wurde erfolgreich erstellt. SKU %s\nBitte überprüfe alle informationen nochmal in JTL Wawi.", FatherSKU), w)
+			}
+			FatherSKU = ""
 		})
 
 		CombineWindow(combineW, app, Selected)

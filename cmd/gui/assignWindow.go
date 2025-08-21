@@ -184,7 +184,7 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 			waitDlg.Show()
 
 			go func() {
-				err := wawi.HandleAssignDone(combinedItems, selectedCombinationIndex, variations, labels)
+				SKU, err := wawi.HandleAssignDone(combinedItems, selectedCombinationIndex, variations, labels)
 
 				fyne.Do(func() {
 					waitDlg.Hide()
@@ -195,6 +195,7 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 						return
 					}
 
+					FatherSKU = SKU
 					w.Close()
 				})
 

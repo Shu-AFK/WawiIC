@@ -90,7 +90,7 @@ func GetCategories(pageSize int) (map[string][]string, map[string]string, error)
 	return tree, labels, nil
 }
 
-func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int, variations map[string][]string, labels map[string]string) error {
+func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int, variations map[string][]string, labels map[string]string) (string, error) {
 	productNames := make([]string, 0, len(combinations))
 	variationLabels := "["
 	oldSKUs := make([]string, 0, len(combinations))
@@ -113,16 +113,16 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	ctx := context.Background()
 	productSEO, err := openai.MakeRequest(ctx, userPrompt)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	parentItem := createParentStruct(productSEO, combinations[selectedCombinationIndex].Item.GetItem)
 	item, err := CreateParentItem(parentItem)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if item.IsActive == false {
-		return errors.New("item is not active")
+		return "", errors.New("item is not active")
 	}
 
 	/*
@@ -160,7 +160,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 
 	err = UpdateDescription(strconv.Itoa(item.ID), *productSEO)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	variationTree := BuildVariationLabelIndex(variations, labels)
@@ -170,7 +170,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	for parentName, children := range variationTree {
 		parentVariation, err := CreateVariations(strconv.Itoa(item.ID), parentName)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		variationOrder = append(variationOrder, parentName)
@@ -181,7 +181,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		for _, childName := range children {
 			v, err := CreateVariationValue(strconv.Itoa(item.ID), strconv.Itoa(parentVariation.Id), childName)
 			if err != nil {
-				return err
+				return "", err
 			}
 			valueIDByLabel[parentName][childName] = strconv.Itoa(v.Id)
 		}
@@ -271,7 +271,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 
 			id, ok := valueIDByLabel[vLabel][name]
 			if !ok {
-				return fmt.Errorf("missing value ID for %s=%s", vLabel, name)
+				return "", fmt.Errorf("missing value ID for %s=%s", vLabel, name)
 			}
 			comboValueIDs = append(comboValueIDs, id)
 		}
@@ -281,10 +281,10 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 			strconv.Itoa(combination.Item.GetItem.ID),
 			comboValueIDs,
 		); err != nil {
-			return err
+			return "", err
 		}
 	}
-	return nil
+	return parentItem.SKU, nil
 }
 
 func PtrIfSet[T comparable](v T) *T {
