@@ -25,7 +25,7 @@ func GetItems(query string, selectedCategoryID string) ([]wawi_structs.WItem, er
 	itemQuery := wawi_structs.QueryItemStruct{
 		SearchKeyword: query,
 		ItemCategory:  selectedCategoryID,
-		PageSize:      20,
+		PageSize:      1000,
 	}
 
 	items, err := QueryItem(itemQuery)
@@ -125,10 +125,12 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		return errors.New("item is not active")
 	}
 
-	err = SetItemActiveSalesChannels(strconv.Itoa(item.ID), combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels)
-	if err != nil {
-		return err
-	}
+	/*
+		err = SetItemActiveSalesChannels(strconv.Itoa(item.ID), combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels)
+		if err != nil {
+			return err
+		}
+	*/
 
 	/*
 		var images []wawi_structs.CreateImageStruct

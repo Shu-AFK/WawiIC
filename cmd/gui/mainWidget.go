@@ -68,48 +68,67 @@ func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas, w fyne.Win
 	rows.Objects = nil
 	rows.Refresh()
 
-	items, err := wawi.GetItems(query, SelectedCategoryID)
-	if errors.Is(err, wawi.NoCategory) {
-		label := widget.NewLabel("Bitte eine Kategorie auswählen um nach Artikeln zu suchen")
+	spinner := widget.NewProgressBarInfinite()
+	waitDlg := dialog.NewCustomWithoutButtons(
+		"Bitte warten",
+		container.NewVBox(
+			widget.NewLabel("Artikel werden gesucht…"),
+			spinner,
+		),
+		w,
+	)
+	waitDlg.Show()
 
-		content := container.NewVBox(label)
-		dialog.ShowCustom("Hinweis", "Schließen", content, w)
+	go func() {
+		items, err := wawi.GetItems(query, SelectedCategoryID)
 
-		return
-	} else if err != nil {
-		dialog.ShowError(err, w)
-		return
-	}
+		fyne.Do(func() {
+			defer waitDlg.Hide()
 
-	for _, item := range items {
-		combineCheck := widget.NewCheck("Zusammenfügen", func(checked bool) {
-			if item.GuiItem.IsChild || item.GuiItem.IsFather {
-				item.GuiItem.Combine = checked
+			if errors.Is(err, wawi.NoCategory) {
+				label := widget.NewLabel("Bitte eine Kategorie auswählen um nach Artikeln zu suchen")
+				content := container.NewVBox(label)
+				dialog.ShowCustom("Hinweis", "Schließen", content, w)
+				return
+			} else if err != nil {
+				dialog.ShowError(err, w)
+				return
 			}
 
-			if checked {
-				Selected = append(Selected, item)
-			} else {
-				Selected = helper.FindAndRemoveItem(item, Selected)
+			for _, it := range items {
+				item := it
+
+				combineCheck := widget.NewCheck("Zusammenfügen", func(checked bool) {
+					if item.GuiItem.IsChild || item.GuiItem.IsFather {
+						item.GuiItem.Combine = checked
+					}
+
+					if checked {
+						Selected = append(Selected, item)
+					} else {
+						Selected = helper.FindAndRemoveItem(item, Selected)
+					}
+				})
+
+				if item.GuiItem.IsFather || item.GuiItem.IsChild {
+					combineCheck.Disable()
+				}
+
+				row := container.NewHBox(
+					truncatedLabelWithTooltip(item.GuiItem.SKU, MaxIdLength, canvas),
+					truncatedLabelWithTooltip(item.GuiItem.Name, MaxNameLength, canvas),
+					layout.NewSpacer(),
+					createDisabledCheck("Vaterartikel", item.GuiItem.IsFather),
+					createDisabledCheck("Kindartikel", item.GuiItem.IsChild),
+					combineCheck,
+				)
+
+				rows.Add(row)
 			}
+
+			rows.Refresh()
 		})
-
-		if item.GuiItem.IsFather || item.GuiItem.IsChild {
-			combineCheck.Disable()
-		}
-
-		row := container.NewHBox(
-			truncatedLabelWithTooltip(item.GuiItem.SKU, MaxIdLength, canvas),
-			truncatedLabelWithTooltip(item.GuiItem.Name, MaxNameLength, canvas),
-			layout.NewSpacer(),
-			createDisabledCheck("Vaterartikel", item.GuiItem.IsFather),
-			createDisabledCheck("Kindartikel", item.GuiItem.IsChild),
-			combineCheck,
-		)
-
-		rows.Add(row)
-	}
-	rows.Refresh()
+	}()
 }
 
 func truncatedLabelWithTooltip(text string, maxLen int, canvas fyne.Canvas) fyne.CanvasObject {
