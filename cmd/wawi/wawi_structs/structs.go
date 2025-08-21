@@ -284,3 +284,13 @@ type SalesChannel struct {
 		OnlineShopActivation bool `json:"OnlineShopActivation"`
 	} `json:"CategoryCapabilities"`
 }
+
+type QueryItemPropertiesStruct struct {
+	ItemId     int        `json:"ItemId"`
+	Properties []Property `json:"Properties"`
+}
+
+type Property struct {
+	PropertyId      int `json:"PropertyId"`
+	PropertyValueId int `json:"PropertyValueId"`
+}

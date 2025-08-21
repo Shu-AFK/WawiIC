@@ -385,6 +385,66 @@ func UpdateDescription(itemID string, SEO openai_structs.ProductSEO) error {
 	return nil
 }
 
+func QueryItemProperties(itemId string) (*wawi_structs.QueryItemPropertiesStruct, error) {
+	reqUrl := defines.APIBaseURL + "items/" + itemId + "/properties"
+	resp, err := wawiCreateRequest("GET", reqUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to query item properties: %v (%v)", resp.StatusCode, string(errorBody))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var respJSON wawi_structs.QueryItemPropertiesStruct
+	err = json.Unmarshal(body, &respJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	return &respJSON, nil
+}
+
+func CreateItemProperty(itemId string, propertyValueId string) (*wawi_structs.Property, error) {
+	reqUrl := defines.APIBaseURL + "items/" + itemId + "/properties"
+	reqBody := "{\"propertyId\":\"" + propertyValueId + "\"}"
+	resp, err := wawiCreateRequest("POST", reqUrl, bytes.NewReader([]byte(reqBody)))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to create item property: %v (%v)", resp.StatusCode, string(errorBody))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var respJSON wawi_structs.Property
+	err = json.Unmarshal(body, &respJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	return &respJSON, nil
+}
+
 func queryCategoriesReq(pageSize int, pageNumber int) (*http.Response, error) {
 	if pageSize == 0 {
 		return nil, fmt.Errorf("pageSize must be greater than zero")
