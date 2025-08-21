@@ -416,7 +416,7 @@ func QueryItemProperties(itemId string) (*wawi_structs.QueryItemPropertiesStruct
 
 func CreateItemProperty(itemId string, propertyValueId string) (*wawi_structs.Property, error) {
 	reqUrl := defines.APIBaseURL + "items/" + itemId + "/properties"
-	reqBody := "{\"propertyId\":\"" + propertyValueId + "\"}"
+	reqBody := "{\"PropertyValueId\":\"" + propertyValueId + "\"}"
 	resp, err := wawiCreateRequest("POST", reqUrl, bytes.NewReader([]byte(reqBody)))
 	if err != nil {
 		return nil, err
