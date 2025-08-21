@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -116,7 +115,11 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		return "", err
 	}
 
-	parentItem := createParentStruct(productSEO, combinations[selectedCombinationIndex].Item.GetItem)
+	items := make([]wawi_structs.GetItem, 0, len(combinations))
+	for _, c := range combinations {
+		items = append(items, c.Item.GetItem)
+	}
+	parentItem := createParentStruct(productSEO, items)
 	item, err := CreateParentItem(parentItem)
 	if err != nil {
 		return "", err
@@ -295,79 +298,45 @@ func PtrIfSet[T comparable](v T) *T {
 	return &v
 }
 
-func createParentStruct(seo *openai_structs.ProductSEO, mainItem wawi_structs.GetItem) wawi_structs.ItemCreate {
+func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.GetItem) wawi_structs.ItemCreate {
+	cheapestItemIndex := findCheapestItem(items)
+	dangerousStruct := getItemDangerous(items)
+	searchTerms := getSearchTerms(items)
 	ts := time.Now().UTC().Format(time.RFC3339)
 
+	// TODO: in Kategorie "Hersteller->Artikelprüfen", Attribute übernehmen
 	parentItem := wawi_structs.ItemCreate{
 		SKU:                 seo.NewSKU,
-		ManufacturerID:      PtrIfSet(mainItem.ManufacturerID),
-		ResponsiblePersonID: PtrIfSet(mainItem.ResponsiblePersonID),
+		ManufacturerID:      PtrIfSet(items[cheapestItemIndex].ManufacturerID),
+		ResponsiblePersonID: PtrIfSet(items[cheapestItemIndex].ResponsiblePersonID),
 		IsActive:            true,
-		Categories:          mainItem.Categories,
+		Categories:          items[cheapestItemIndex].Categories,
 		Name:                seo.CombinedArticleName,
 		Description:         seo.Description,
 		ShortDescription:    seo.ShortDescription,
 		Identifiers: &wawi_structs.Identifiers{
 			ManufacturerNumber: PtrIfSet(removeUpToFirstDash(seo.NewSKU)),
 		},
-		Annotation:      mainItem.Annotation,
+		ItemPriceData: &wawi_structs.ItemPriceData{
+			SalesPriceNet:        items[cheapestItemIndex].ItemPriceData.SalesPriceNet,
+			SuggestedRetailPrice: items[cheapestItemIndex].ItemPriceData.SuggestedRetailPrice,
+			EbayPrice:            items[cheapestItemIndex].ItemPriceData.EbayPrice,
+			AmazonPrice:          items[cheapestItemIndex].ItemPriceData.AmazonPrice,
+		},
+		Annotation:      "Mit API erstellt",
 		Added:           ts,
 		Changed:         ts,
 		ReleasedOnDate:  ts,
-		CountryOfOrigin: mainItem.CountryOfOrigin,
-		DangerousGoods:  PtrIfSet(mainItem.DangerousGoods),
-		Taric:           "",
-		SearchTerms:     "",
+		CountryOfOrigin: items[cheapestItemIndex].CountryOfOrigin,
+		Weights: &wawi_structs.Weights{
+			ItemWeight:     items[cheapestItemIndex].Weights.ItemWeight,
+			ShippingWeight: items[cheapestItemIndex].Weights.ShippingWeight,
+		},
+		DangerousGoods:  dangerousStruct,
+		Taric:           items[cheapestItemIndex].Taric,
+		SearchTerms:     searchTerms,
 		PriceListActive: false,
 	}
 
 	return parentItem
-}
-
-func removeUpToFirstDash(s string) string {
-	_, after, found := strings.Cut(s, "-")
-	if found {
-		return after
-	}
-	return s
-}
-
-func BuildVariationLabelIndex(variations map[string][]string, labels map[string]string) map[string][]string {
-	out := make(map[string][]string)
-
-	for parentID, childIDs := range variations {
-		parentLabel, ok := labels[parentID]
-		if !ok || parentLabel == "" {
-			continue
-		}
-
-		seen := make(map[string]struct{})
-		for _, cid := range childIDs {
-			childLabel, ok := labels[cid]
-			if !ok || childLabel == "" {
-				continue
-			}
-			if _, dup := seen[childLabel]; dup {
-				continue
-			}
-			seen[childLabel] = struct{}{}
-			out[parentLabel] = append(out[parentLabel], childLabel)
-		}
-
-		if len(out[parentLabel]) > 1 {
-			sort.Strings(out[parentLabel])
-		}
-	}
-	delete(out, "Variationen")
-	return out
-}
-
-func childNameFromVariationID(variationID string, labels map[string]string) (string, bool) {
-	parts := strings.Split(variationID, "|")
-	if len(parts) == 0 {
-		return "", false
-	}
-	childID := strings.TrimSpace(parts[len(parts)-1])
-	name, ok := labels[childID]
-	return name, ok
 }

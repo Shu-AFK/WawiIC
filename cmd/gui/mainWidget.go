@@ -39,12 +39,13 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 		combineW := app.NewWindow("Zusammenfügen")
 		combineW.SetOnClosed(func() {
 			Selected = Selected[:0]
-			onSearch(prevSearch, rows, canvas, w)
 
 			if FatherSKU != "" {
 				dialog.ShowInformation("Erfolg", fmt.Sprintf("Der Vather Artikel wurde erfolgreich erstellt. SKU %s\nBitte überprüfe alle informationen nochmal in JTL Wawi.", FatherSKU), w)
 			}
 			FatherSKU = ""
+
+			onSearch(prevSearch, rows, canvas, w)
 		})
 
 		CombineWindow(combineW, app, Selected)

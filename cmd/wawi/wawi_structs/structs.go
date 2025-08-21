@@ -123,11 +123,11 @@ type Component struct {
 }
 
 type ItemPriceData struct {
-	SalesPriceNet        float64 `json:"SalesPriceNet"`
-	SuggestedRetailPrice float64 `json:"SuggestedRetailPrice"`
-	PurchasePriceNet     float64 `json:"PurchasePriceNet"`
-	EbayPrice            float64 `json:"EbayPrice"`
-	AmazonPrice          float64 `json:"AmazonPrice"`
+	SalesPriceNet        *float64 `json:"SalesPriceNet,omitempty"`
+	SuggestedRetailPrice *float64 `json:"SuggestedRetailPrice,omitempty"`
+	PurchasePriceNet     *float64 `json:"PurchasePriceNet,omitempty"`
+	EbayPrice            *float64 `json:"EbayPrice,omitempty"`
+	AmazonPrice          *float64 `json:"AmazonPrice,omitempty"`
 }
 
 type StorageOptions struct {
