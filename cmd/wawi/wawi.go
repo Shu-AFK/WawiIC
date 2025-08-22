@@ -129,42 +129,60 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	}
 
 	/*
-		err = SetItemActiveSalesChannels(strconv.Itoa(item.ID), combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels)
-		if err != nil {
-			return err
-		}
-	*/
-
-	/*
-		var images []wawi_structs.CreateImageStruct
-		imageBuffer, err := GetImagesFromItem(combinations[selectedCombinationIndex].Item.GetItem)
-		if err != nil {
-			return err
-		}
-		images = append(images, imageBuffer...)
-		for _, i := range combinations {
-			if i.Item.GetItem.SKU == combinations[selectedCombinationIndex].Item.GuiItem.SKU {
-				continue
-			}
-			imageBuffer, err = GetImagesFromItem(i.Item.GetItem)
+			err = SetItemActiveSalesChannels(strconv.Itoa(item.ID), combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels)
 			if err != nil {
-				return err
+				return "", err
+			}
+
+
+			var images []wawi_structs.CreateImageStruct
+			imageBuffer, err := GetImagesFromItem(combinations[selectedCombinationIndex].Item.GetItem)
+			if err != nil {
+				return "", err
 			}
 			images = append(images, imageBuffer...)
+			for _, i := range combinations {
+				if i.Item.GetItem.SKU == combinations[selectedCombinationIndex].Item.GuiItem.SKU {
+					continue
+				}
+				imageBuffer, err = GetImagesFromItem(i.Item.GetItem)
+				if err != nil {
+					return "", err
+				}
+				images = append(images, imageBuffer...)
+			}
+
+			for _, image := range images {
+				err = CreateItemImage(image, string(rune(item.ID)))
+				if err != nil {
+					return "", err
+				}
+			}
+
+		err = UpdateDescription(strconv.Itoa(item.ID), *productSEO)
+		if err != nil {
+			return "", err
 		}
 
-		for _, image := range images {
-			err = CreateItemImage(image, string(rune(item.ID)))
+		var propertyValueIds []string
+		for _, c := range combinations {
+			properties, err := QueryItemProperties(strconv.Itoa(c.Item.GetItem.ID))
 			if err != nil {
-				return err
+				return "", err
+			}
+
+			for _, property := range properties.Properties {
+				propertyValueIds = append(propertyValueIds, strconv.Itoa(property.PropertyValueId))
+			}
+		}
+		uniquePropertyValueIds := uniqueStrings(propertyValueIds)
+		for _, id := range uniquePropertyValueIds {
+			_, err := CreateItemProperty(strconv.Itoa(item.ID), id)
+			if err != nil {
+				return "", err
 			}
 		}
 	*/
-
-	err = UpdateDescription(strconv.Itoa(item.ID), *productSEO)
-	if err != nil {
-		return "", err
-	}
 
 	variationTree := BuildVariationLabelIndex(variations, labels)
 	var variationOrder []string
@@ -302,15 +320,21 @@ func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.Get
 	cheapestItemIndex := findCheapestItem(items)
 	dangerousStruct := getItemDangerous(items)
 	searchTerms := getSearchTerms(items)
+
+	_, seoSKUSplit, _ := strings.Cut(seo.NewSKU, "-")
+	pNum, _, _ := strings.Cut(items[cheapestItemIndex].SKU, "-")
+
+	newSKU := fmt.Sprintf("%s-%s", pNum, seoSKUSplit)
+
 	ts := time.Now().UTC().Format(time.RFC3339)
 
-	// TODO: in Kategorie "Hersteller->Artikelprüfen", Attribute übernehmen
+	// TODO: Attribute übernehmen
 	parentItem := wawi_structs.ItemCreate{
-		SKU:                 seo.NewSKU,
+		SKU:                 newSKU,
 		ManufacturerID:      PtrIfSet(items[cheapestItemIndex].ManufacturerID),
 		ResponsiblePersonID: PtrIfSet(items[cheapestItemIndex].ResponsiblePersonID),
 		IsActive:            true,
-		Categories:          items[cheapestItemIndex].Categories,
+		Categories:          addCategoryToParent(items[cheapestItemIndex].Categories),
 		Name:                seo.CombinedArticleName,
 		Description:         seo.Description,
 		ShortDescription:    seo.ShortDescription,

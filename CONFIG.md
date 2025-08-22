@@ -1,3 +1,4 @@
+
 # Configuration Guide
 
 This document describes the required structure and location for the configuration file used by the application.
@@ -9,28 +10,35 @@ Place the configuration file at: config/config.json
 ## File Format
 
 - File type: JSON
-- Structure: An array of entries (objects)
-- Each entry must include the following fields:
+- Structure: A top-level object with:
+  - `category id`: string, the selected category ID (non-empty)
+  - `mappings`: array of entries (objects)
+  - Each entry in `mappings` must include the following fields:
     - `category`: string — the category name (non-empty)
     - `shop website`: string — a valid URL (HTTPS recommended)
 
 Notes:
-- Keys are case-sensitive and must match exactly (including the space in `shop website`).
+- Keys are case-sensitive and must match exactly (including the space in `shop website` and in `category id`).
 - JSON does not allow comments or trailing commas.
 - Use UTF-8 encoding.
 
 ## Example
+
 ```json
-[
-    {
+{
+    "category id": "155",
+    "mappings": 
+    [
+      {
         "category": "Electronics",
         "shop website": "https://www.your-electronics-shop.com"
-    },
-    {
+      },
+      {
         "category": "Books",
         "shop website": "https://www.your-books-shop.com"
-    }
-]
+      }
+    ]
+}
 ```
 
 ### JTL-Wawi and Shop Link Requirements
@@ -38,7 +46,7 @@ Notes:
 - Categories must exactly match the category names defined in your JTL-Wawi system. This one-to-one match is required so the application can correctly reference and combine item images based on category.
 - The `shop website` field must be the URL to the corresponding shop’s homepage for that category. Providing the correct homepage link per category ensures the application can resolve and fetch the appropriate item images to combine.
 
-Fill in the empty strings with real values and add more objects as needed, separated by commas within the array.
+Fill in the real values for `category id`, and add more objects inside `mappings` as needed, separated by commas.
 
 
 

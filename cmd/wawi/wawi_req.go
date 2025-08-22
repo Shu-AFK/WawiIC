@@ -547,9 +547,9 @@ func wawiCreateRequest(method string, url string, body io.Reader) (*http.Respons
 
 func findShopUrlItem(item wawi_structs.GetItem) (string, error) {
 	for _, c := range item.Categories {
-		category := strings.Split(c.Name, "->")[0]
+		category := strings.Split(*c.Name, "->")[0]
 		for _, s := range config {
-			if c.Name == category {
+			if *c.Name == category {
 				return s.ShopWebsite, nil
 			}
 		}

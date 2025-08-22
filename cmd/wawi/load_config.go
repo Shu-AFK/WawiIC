@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -14,7 +15,13 @@ type ConfigEntry struct {
 	ShopWebsite string `json:"shop website"`
 }
 
+type configRoot struct {
+	CategoryID string        `json:"category id"`
+	Mappings   []ConfigEntry `json:"mappings"`
+}
+
 var config []ConfigEntry
+var categoryID int
 
 func LoadConfig(path string) error {
 	data, err := os.ReadFile(path)
@@ -22,13 +29,17 @@ func LoadConfig(path string) error {
 		return fmt.Errorf("read config: %w", err)
 	}
 
-	if err := json.Unmarshal(data, &config); err != nil {
+	var root configRoot
+	if err := json.Unmarshal(data, &root); err != nil {
 		return fmt.Errorf("parse JSON: %w", err)
 	}
 
-	if len(config) == 0 {
-		return errors.New("config must contain at least one entry")
+	if len(root.Mappings) == 0 {
+		return errors.New("config must contain at least one mapping")
 	}
+
+	config = root.Mappings
+	categoryID, err = strconv.Atoi(strings.TrimSpace(root.CategoryID))
 
 	for i, e := range config {
 		e.Category = strings.TrimSpace(e.Category)

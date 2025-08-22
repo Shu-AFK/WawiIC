@@ -102,8 +102,8 @@ type GetItem struct {
 }
 
 type Category struct {
-	CategoryID int    `json:"CategoryId"`
-	Name       string `json:"Name"`
+	CategoryID int     `json:"CategoryId"`
+	Name       *string `json:"Name,omitempty"`
 }
 
 type Identifiers struct {
