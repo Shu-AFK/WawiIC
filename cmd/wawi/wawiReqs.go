@@ -445,6 +445,36 @@ func CreateItemProperty(itemId string, propertyValueId string) (*wawi_structs.Pr
 	return &respJSON, nil
 }
 
+func QuerySuppliers() ([]wawi_structs.Suppliers, error) {
+	reqUrl := defines.APIBaseURL + "suppliers"
+	resp, err := wawiCreateRequest("GET", reqUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to query suppliers: %v (%v)", resp.StatusCode, string(errorBody))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var suppliers []wawi_structs.Suppliers
+	err = json.Unmarshal(body, &suppliers)
+	if err != nil {
+		return nil, err
+	}
+
+	return suppliers, nil
+}
+
 func queryCategoriesReq(pageSize int, pageNumber int) (*http.Response, error) {
 	if pageSize == 0 {
 		return nil, fmt.Errorf("pageSize must be greater than zero")

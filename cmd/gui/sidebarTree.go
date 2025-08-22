@@ -4,6 +4,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+	"github.com/Shu-AFK/WawiIC/cmd/wawi"
 )
 
 var SelectedCategoryID string
@@ -11,6 +12,9 @@ var SelectedCategoryID string
 // categories: map[parentID][]childID
 // labels: map[ID]Name
 func createSidebarTree(categories map[string][]string, labels map[string]string) *container.Scroll {
+	if wawi.SearchMode == "category" {
+
+	}
 	getChildIDs := func(uid widget.TreeNodeID) []widget.TreeNodeID {
 		children := categories[uid]
 		out := make([]widget.TreeNodeID, len(children))

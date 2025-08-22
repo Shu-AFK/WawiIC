@@ -11,6 +11,7 @@ Place the configuration file at: config/config.json
 
 - File type: JSON
 - Structure: A top-level object with:
+  - `search mode`: string — selects how items are searched; must be either `"category"` or `"supplier"`
   - `category id`: string, the selected category ID (non-empty)
   - `mappings`: array of entries (objects)
   - Each entry in `mappings` must include the following fields:
@@ -18,7 +19,8 @@ Place the configuration file at: config/config.json
     - `shop website`: string — a valid URL (HTTPS recommended)
 
 Notes:
-- Keys are case-sensitive and must match exactly (including the space in `shop website` and in `category id`).
+- Keys are case-sensitive and must match exactly (including the space in `shop website` and in `category id`, and the space in `search mode`).
+- `search mode` accepts only two values: `"category"` or `"supplier"`.
 - JSON does not allow comments or trailing commas.
 - Use UTF-8 encoding.
 
@@ -26,7 +28,8 @@ Notes:
 
 ```json
 {
-    "category id": "155",
+  "search mode": "category",
+  "category id": "155",
     "mappings": 
     [
       {

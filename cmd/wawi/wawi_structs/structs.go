@@ -294,3 +294,32 @@ type Property struct {
 	PropertyId      int `json:"PropertyId"`
 	PropertyValueId int `json:"PropertyValueId"`
 }
+
+type Suppliers struct {
+	ID                 int    `json:"Id"`
+	Name               string `json:"Name"`
+	Type               string `json:"Type"`
+	SupplierNo         string `json:"SupplierNo"`
+	InternalCustomerID string `json:"InternalCustomerId"`
+	LanguageISO        string `json:"LanguageISO"`
+	FormOfAddress      string `json:"FormOfAddress"`
+	FirstName          string `json:"FirstName"`
+	LastName           string `json:"LastName"`
+	Company            string `json:"Company"`
+	Company2           string `json:"Company2"`
+	Contact            string `json:"Contact"`
+	Street             string `json:"Street"`
+	Address2           string `json:"Address2"`
+	PostalCode         string `json:"PostalCode"`
+	City               string `json:"City"`
+	State              string `json:"State"`
+	CountryISO         string `json:"CountryIso"`
+	Phone              string `json:"Phone"`
+	PhoneExtension     string `json:"PhoneExtension"`
+	Fax                string `json:"Fax"`
+	Email              string `json:"Email"`
+	Website            string `json:"Website"`
+	Comment            string `json:"Comment"`
+	VATID              string `json:"VatID"`
+	Status             string `json:"Status"`
+}

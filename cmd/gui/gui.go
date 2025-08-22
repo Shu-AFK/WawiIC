@@ -1,8 +1,6 @@
 package gui
 
 import (
-	_ "embed"
-
 	"github.com/Shu-AFK/WawiIC/assets"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi"
 

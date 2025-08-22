@@ -16,11 +16,13 @@ type ConfigEntry struct {
 }
 
 type configRoot struct {
+	SearchMode string        `json:"search mode"`
 	CategoryID string        `json:"category id"`
 	Mappings   []ConfigEntry `json:"mappings"`
 }
 
 var config []ConfigEntry
+var SearchMode string
 var categoryID int
 
 func LoadConfig(path string) error {
@@ -40,6 +42,7 @@ func LoadConfig(path string) error {
 
 	config = root.Mappings
 	categoryID, err = strconv.Atoi(strings.TrimSpace(root.CategoryID))
+	searchMode = strings.TrimSpace(root.SearchMode)
 
 	for i, e := range config {
 		e.Category = strings.TrimSpace(e.Category)
