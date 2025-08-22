@@ -14,7 +14,9 @@ import (
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
 
-var NoCategory = errors.New("no category selected")
+var (
+	NoCategory = errors.New("no category selected")
+)
 
 func GetItems(query string, selectedCategoryID string) ([]wawi_structs.WItem, error) {
 	if selectedCategoryID == "" || selectedCategoryID == "Kategorien" {
@@ -90,17 +92,7 @@ func GetCategories(pageSize int) (map[string][]string, map[string]string, error)
 }
 
 func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int, variations map[string][]string, labels map[string]string) (string, error) {
-	productNames := make([]string, 0, len(combinations))
-	variationLabels := "["
-	oldSKUs := make([]string, 0, len(combinations))
-
-	for _, c := range combinations {
-		productNames = append(productNames, c.Item.GuiItem.Name)
-		variationLabels += fmt.Sprintf("[%s], ", c.Label)
-		oldSKUs = append(oldSKUs, c.Item.GuiItem.SKU)
-	}
-	variationLabels = variationLabels[:len(variationLabels)-2]
-	variationLabels += "]"
+	productNames, variationLabels, oldSKUs := buildPromptInputs(combinations, selectedCombinationIndex)
 
 	userPrompt := openai.GetUserPrompt(
 		productNames,
@@ -124,136 +116,165 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	if err != nil {
 		return "", err
 	}
-	if item.IsActive == false {
+	if !item.IsActive {
 		return "", errors.New("item is not active")
 	}
 
 	/*
-			err = SetItemActiveSalesChannels(strconv.Itoa(item.ID), combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels)
-			if err != nil {
-				return "", err
-			}
-
-
-			var images []wawi_structs.CreateImageStruct
-			imageBuffer, err := GetImagesFromItem(combinations[selectedCombinationIndex].Item.GetItem)
-			if err != nil {
-				return "", err
-			}
-			images = append(images, imageBuffer...)
-			for _, i := range combinations {
-				if i.Item.GetItem.SKU == combinations[selectedCombinationIndex].Item.GuiItem.SKU {
-					continue
-				}
-				imageBuffer, err = GetImagesFromItem(i.Item.GetItem)
-				if err != nil {
-					return "", err
-				}
-				images = append(images, imageBuffer...)
-			}
-
-			for _, image := range images {
-				err = CreateItemImage(image, string(rune(item.ID)))
-				if err != nil {
-					return "", err
-				}
-			}
-
-		err = UpdateDescription(strconv.Itoa(item.ID), *productSEO)
-		if err != nil {
+		if err := setActiveSalesChannels(item.ID, combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels); err != nil {
 			return "", err
 		}
-
-		var propertyValueIds []string
-		for _, c := range combinations {
-			properties, err := QueryItemProperties(strconv.Itoa(c.Item.GetItem.ID))
-			if err != nil {
-				return "", err
-			}
-
-			for _, property := range properties.Properties {
-				propertyValueIds = append(propertyValueIds, strconv.Itoa(property.PropertyValueId))
-			}
-		}
-		uniquePropertyValueIds := uniqueStrings(propertyValueIds)
-		for _, id := range uniquePropertyValueIds {
-			_, err := CreateItemProperty(strconv.Itoa(item.ID), id)
-			if err != nil {
-				return "", err
-			}
+		if err := gatherAndUploadImages(item.ID, combinations, selectedCombinationIndex); err != nil {
+			return "", err
 		}
 	*/
 
+	// Meta description
+	if err := UpdateDescription(strconv.Itoa(item.ID), *productSEO); err != nil {
+		return "", err
+	}
+
+	propIDs, err := collectUniquePropertyValueIDs(combinations)
+	if err != nil {
+		return "", err
+	}
+	for _, id := range propIDs {
+		if _, err := CreateItemProperty(strconv.Itoa(item.ID), id); err != nil {
+			return "", err
+		}
+	}
+
 	variationTree := BuildVariationLabelIndex(variations, labels)
+	variationOrder, valueIDByLabel, err := createVariationsAndValues(item.ID, variationTree)
+	if err != nil {
+		return "", err
+	}
+
+	if err := assignChildrenToParent(item.ID, combinations, variationTree, variationOrder, valueIDByLabel); err != nil {
+		return "", err
+	}
+
+	return parentItem.SKU, nil
+}
+
+func buildPromptInputs(combinations []gui_structs.Combination, selectedIdx int) ([]string, string, []string) {
+	productNames := make([]string, 0, len(combinations))
+	variationLabels := "["
+	oldSKUs := make([]string, 0, len(combinations))
+
+	for _, c := range combinations {
+		productNames = append(productNames, c.Item.GuiItem.Name)
+		variationLabels += fmt.Sprintf("[%s], ", c.Label)
+		oldSKUs = append(oldSKUs, c.Item.GuiItem.SKU)
+	}
+	if len(variationLabels) >= 2 {
+		variationLabels = variationLabels[:len(variationLabels)-2]
+	}
+	variationLabels += "]"
+
+	_ = selectedIdx // kept for symmetry; currently only used by caller to pass desc
+	return productNames, variationLabels, oldSKUs
+}
+
+func generateSEO(productNames []string, selectedDescription string, variationLabels string, oldSKUs []string) (*openai_structs.ProductSEO, error) {
+	userPrompt := openai.GetUserPrompt(productNames, selectedDescription, variationLabels, oldSKUs)
+	ctx := context.Background()
+	return openai.MakeRequest(ctx, userPrompt)
+}
+
+func collectItemsFromCombinations(combinations []gui_structs.Combination) []wawi_structs.GetItem {
+	items := make([]wawi_structs.GetItem, 0, len(combinations))
+	for _, c := range combinations {
+		items = append(items, c.Item.GetItem)
+	}
+	return items
+}
+
+func setActiveSalesChannels(itemID int, channels []string) error {
+	return SetItemActiveSalesChannels(strconv.Itoa(itemID), channels)
+}
+
+func gatherAndUploadImages(parentItemID int, combinations []gui_structs.Combination, selectedIdx int) error {
+	var images []wawi_structs.CreateImageStruct
+
+	firstImages, err := GetImagesFromItem(combinations[selectedIdx].Item.GetItem)
+	if err != nil {
+		return err
+	}
+	images = append(images, firstImages...)
+
+	for _, i := range combinations {
+		if i.Item.GetItem.SKU == combinations[selectedIdx].Item.GuiItem.SKU {
+			continue
+		}
+		imageBuffer, err := GetImagesFromItem(i.Item.GetItem)
+		if err != nil {
+			return err
+		}
+		images = append(images, imageBuffer...)
+	}
+
+	for _, image := range images {
+		if err := CreateItemImage(image, strconv.Itoa(parentItemID)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func collectUniquePropertyValueIDs(combinations []gui_structs.Combination) ([]string, error) {
+	var propertyValueIds []string
+	for _, c := range combinations {
+		properties, err := QueryItemProperties(strconv.Itoa(c.Item.GetItem.ID))
+		if err != nil {
+			return nil, err
+		}
+		for _, property := range properties.Properties {
+			propertyValueIds = append(propertyValueIds, strconv.Itoa(property.PropertyValueId))
+		}
+	}
+	return uniqueStrings(propertyValueIds), nil
+}
+
+func createVariationsAndValues(itemID int, variationTree map[string][]string) ([]string, map[string]map[string]string, error) {
 	var variationOrder []string
 	valueIDByLabel := map[string]map[string]string{}
 
 	for parentName, children := range variationTree {
-		parentVariation, err := CreateVariations(strconv.Itoa(item.ID), parentName)
+		parentVariation, err := CreateVariations(strconv.Itoa(itemID), parentName)
 		if err != nil {
-			return "", err
+			return nil, nil, err
 		}
-
 		variationOrder = append(variationOrder, parentName)
 		if _, ok := valueIDByLabel[parentName]; !ok {
 			valueIDByLabel[parentName] = map[string]string{}
 		}
-
 		for _, childName := range children {
-			v, err := CreateVariationValue(strconv.Itoa(item.ID), strconv.Itoa(parentVariation.Id), childName)
+			v, err := CreateVariationValue(strconv.Itoa(itemID), strconv.Itoa(parentVariation.Id), childName)
 			if err != nil {
-				return "", err
+				return nil, nil, err
 			}
 			valueIDByLabel[parentName][childName] = strconv.Itoa(v.Id)
 		}
 	}
+	return variationOrder, valueIDByLabel, nil
+}
 
-	// Helper: parse a label like "Größe: 150ml, Farbe: Blau" or "[Farbe] Blau"
-	parseNamesByLabel := func(raw string) map[string]string {
-		out := map[string]string{}
-		s := strings.TrimSpace(raw)
-		s = strings.Trim(s, "[]")
-		parts := strings.Split(s, ",")
-		for _, p := range parts {
-			seg := strings.TrimSpace(p)
-			if seg == "" {
-				continue
-			}
-			var key, val string
-			if i := strings.IndexAny(seg, ":="); i >= 0 {
-				key = strings.TrimSpace(seg[:i])
-				val = strings.TrimSpace(seg[i+1:])
-			} else {
-				// Try bracketed "[Farbe] Blau" or "Farbe Blau"
-				fields := strings.Fields(seg)
-				if len(fields) >= 2 {
-					key = strings.Trim(fields[0], "[]")
-					val = strings.TrimSpace(seg[len(fields[0]):])
-				}
-			}
-			key = strings.Trim(key, "[]- ")
-			val = strings.Trim(val, "[]- ")
-			if key != "" && val != "" {
-				out[key] = val
-			}
-		}
-		return out
-	}
-
-	// Helper: case-insensitive substring check
-	containsCI := func(haystack, needle string) bool {
-		return strings.Contains(strings.ToLower(haystack), strings.ToLower(needle))
-	}
-
+func assignChildrenToParent(
+	parentItemID int,
+	combinations []gui_structs.Combination,
+	variationTree map[string][]string,
+	variationOrder []string,
+	valueIDByLabel map[string]map[string]string,
+) error {
 	for _, combination := range combinations {
-		// First, parse what we can from the combination label
 		namesByLabel := parseNamesByLabel(combination.Label)
 
 		var comboValueIDs []string
 		for _, vLabel := range variationOrder {
 			name := namesByLabel[vLabel]
 
-			// Fallback 1: try to detect which child value appears in the label text
+			// Fallback 1: detect value in label text
 			if name == "" {
 				if children, ok := variationTree[vLabel]; ok {
 					candidates := []string{}
@@ -268,7 +289,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 				}
 			}
 
-			// Fallback 2: try to detect value from the combination item name
+			// Fallback 2: detect value in item name
 			if name == "" {
 				if children, ok := variationTree[vLabel]; ok {
 					candidates := []string{}
@@ -283,7 +304,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 				}
 			}
 
-			// Fallback 3: if the variation has only one value, use it
+			// Fallback 3: only one possible value
 			if name == "" {
 				if children, ok := variationTree[vLabel]; ok && len(children) == 1 {
 					name = children[0]
@@ -292,20 +313,54 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 
 			id, ok := valueIDByLabel[vLabel][name]
 			if !ok {
-				return "", fmt.Errorf("missing value ID for %s=%s", vLabel, name)
+				return fmt.Errorf("missing value ID for %s=%s", vLabel, name)
 			}
 			comboValueIDs = append(comboValueIDs, id)
 		}
 
 		if err := AssignChildToParent(
-			strconv.Itoa(item.ID),
+			strconv.Itoa(parentItemID),
 			strconv.Itoa(combination.Item.GetItem.ID),
 			comboValueIDs,
 		); err != nil {
-			return "", err
+			return err
 		}
 	}
-	return parentItem.SKU, nil
+	return nil
+}
+
+func parseNamesByLabel(raw string) map[string]string {
+	out := map[string]string{}
+	s := strings.TrimSpace(raw)
+	s = strings.Trim(s, "[]")
+	parts := strings.Split(s, ",")
+	for _, p := range parts {
+		seg := strings.TrimSpace(p)
+		if seg == "" {
+			continue
+		}
+		var key, val string
+		if i := strings.IndexAny(seg, ":="); i >= 0 {
+			key = strings.TrimSpace(seg[:i])
+			val = strings.TrimSpace(seg[i+1:])
+		} else {
+			fields := strings.Fields(seg)
+			if len(fields) >= 2 {
+				key = strings.Trim(fields[0], "[]")
+				val = strings.TrimSpace(seg[len(fields[0]):])
+			}
+		}
+		key = strings.Trim(key, "[]- ")
+		val = strings.Trim(val, "[]- ")
+		if key != "" && val != "" {
+			out[key] = val
+		}
+	}
+	return out
+}
+
+func containsCI(haystack, needle string) bool {
+	return strings.Contains(strings.ToLower(haystack), strings.ToLower(needle))
 }
 
 func PtrIfSet[T comparable](v T) *T {
