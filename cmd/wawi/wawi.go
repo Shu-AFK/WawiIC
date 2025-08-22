@@ -94,24 +94,19 @@ func GetCategories(pageSize int) (map[string][]string, map[string]string, error)
 func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int, variations map[string][]string, labels map[string]string) (string, error) {
 	productNames, variationLabels, oldSKUs := buildPromptInputs(combinations, selectedCombinationIndex)
 
-	userPrompt := openai.GetUserPrompt(
+	productSEO, err := generateSEO(
 		productNames,
 		combinations[selectedCombinationIndex].Item.GetItem.Description,
 		variationLabels,
 		oldSKUs,
 	)
-
-	ctx := context.Background()
-	productSEO, err := openai.MakeRequest(ctx, userPrompt)
 	if err != nil {
 		return "", err
 	}
 
-	items := make([]wawi_structs.GetItem, 0, len(combinations))
-	for _, c := range combinations {
-		items = append(items, c.Item.GetItem)
-	}
+	items := collectItemsFromCombinations(combinations)
 	parentItem := createParentStruct(productSEO, items)
+
 	item, err := CreateParentItem(parentItem)
 	if err != nil {
 		return "", err
@@ -119,6 +114,16 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	if !item.IsActive {
 		return "", errors.New("item is not active")
 	}
+
+	descriptionChannel := make(chan error, 1)
+	propertyChannel := make(chan error, 1)
+	type variantsResponse struct {
+		order          []string
+		valueIdByLabel map[string]map[string]string
+		variationTree  map[string][]string
+		err            error
+	}
+	variationsChannel := make(chan variantsResponse, 1)
 
 	/*
 		if err := setActiveSalesChannels(item.ID, combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels); err != nil {
@@ -130,27 +135,51 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	*/
 
 	// Meta description
-	if err := UpdateDescription(strconv.Itoa(item.ID), *productSEO); err != nil {
-		return "", err
-	}
+	go func() {
+		descriptionChannel <- UpdateDescription(strconv.Itoa(item.ID), *productSEO)
+	}()
 
-	propIDs, err := collectUniquePropertyValueIDs(combinations)
-	if err != nil {
-		return "", err
-	}
-	for _, id := range propIDs {
-		if _, err := CreateItemProperty(strconv.Itoa(item.ID), id); err != nil {
-			return "", err
+	go func() {
+		propIDs, err := collectUniquePropertyValueIDs(combinations)
+		if err != nil {
+			propertyChannel <- err
+			return
 		}
-	}
 
-	variationTree := BuildVariationLabelIndex(variations, labels)
-	variationOrder, valueIDByLabel, err := createVariationsAndValues(item.ID, variationTree)
-	if err != nil {
+		for _, id := range propIDs {
+			if _, err := CreateItemProperty(strconv.Itoa(item.ID), id); err != nil {
+				propertyChannel <- err
+				return
+			}
+		}
+
+		propertyChannel <- nil
+	}()
+
+	go func() {
+		variationTree := BuildVariationLabelIndex(variations, labels)
+		variationOrder, valueIdByLabel, err := createVariationsAndValues(item.ID, variationTree)
+
+		variationsChannel <- variantsResponse{
+			order:          variationOrder,
+			valueIdByLabel: valueIdByLabel,
+			variationTree:  variationTree,
+			err:            err,
+		}
+	}()
+
+	if err := <-descriptionChannel; err != nil {
 		return "", err
 	}
+	if err := <-propertyChannel; err != nil {
+		return "", err
+	}
+	variationsResp := <-variationsChannel
+	if variationsResp.err != nil {
+		return "", variationsResp.err
+	}
 
-	if err := assignChildrenToParent(item.ID, combinations, variationTree, variationOrder, valueIDByLabel); err != nil {
+	if err := assignChildrenToParent(item.ID, combinations, variationsResp.variationTree, variationsResp.order, variationsResp.valueIdByLabel); err != nil {
 		return "", err
 	}
 
@@ -383,7 +412,6 @@ func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.Get
 
 	ts := time.Now().UTC().Format(time.RFC3339)
 
-	// TODO: Attribute übernehmen
 	parentItem := wawi_structs.ItemCreate{
 		SKU:                 newSKU,
 		ManufacturerID:      PtrIfSet(items[cheapestItemIndex].ManufacturerID),
