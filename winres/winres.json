@@ -13,7 +13,7 @@
           "name": "WawiIC",
           "version": "1.0.0.0"
         },
-        "description": "JTL Wawi Smart AI Item Combination Tool",
+        "description": "JTL Wawi - Smart AI Item Combination Tool",
         "minimum-os": "win10",
         "execution-level": "as invoker",
         "ui-access": false,

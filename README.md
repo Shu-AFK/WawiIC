@@ -26,11 +26,16 @@ Perfect for managing product variants efficiently!
 - **C Compiler (gcc)** (for Fyne GUI)
 
 ## Installation
-1. **Clone the repository**:
+1. Clone the repository and install dependencies: 
    ```sh  
    git clone https://github.com/Shu-AFK/WawiIC.git  
    cd WawiIC  
    go mod init github.com/yourusername/WawiIC 
    go mod tidy
+   
+   go build -o WawiIC.exe
    ```
 
+2. Configure your config according to [CONFIG.md](CONFIG.md) and place it in a folder called "config" in the same directory as the exe, or specify the path to the config file using the argument "-c". 
+
+3. Run the exe
