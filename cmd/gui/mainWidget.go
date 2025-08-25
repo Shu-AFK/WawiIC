@@ -89,13 +89,25 @@ func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas, w fyne.Win
 	waitDlg.Show()
 
 	go func() {
-		items, err := wawi.GetItems(query, SelectedCategoryID)
+		var items []wawi_structs.WItem
+		var err error
+
+		if wawi.SearchMode == "category" {
+			items, err = wawi.GetItems(query, SelectedCategoryID, 0)
+		} else if wawi.SearchMode == "supplier" {
+			items, err = wawi.GetItems(query, "", SelectedSupplierID)
+		}
 
 		fyne.Do(func() {
 			defer waitDlg.Hide()
 
 			if errors.Is(err, wawi.NoCategory) {
 				label := widget.NewLabel("Bitte eine Kategorie auswählen um nach Artikeln zu suchen")
+				content := container.NewVBox(label)
+				dialog.ShowCustom("Hinweis", "Schließen", content, w)
+				return
+			} else if errors.Is(err, wawi.NoSupplier) {
+				label := widget.NewLabel("Bitte einen Hersteller ausählen um nach Artikeln zu suchen")
 				content := container.NewVBox(label)
 				dialog.ShowCustom("Hinweis", "Schließen", content, w)
 				return

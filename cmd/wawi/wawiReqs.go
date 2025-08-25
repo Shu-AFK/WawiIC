@@ -503,9 +503,6 @@ func queryItemReq(itemStruct wawi_structs.QueryItemStruct, pageNumber int) (*htt
 	if itemStruct.PageSize == 0 {
 		return nil, fmt.Errorf("no page size provided")
 	}
-	if itemStruct.ItemCategory == "" {
-		return nil, fmt.Errorf("no item category provided")
-	}
 
 	baseURL, err := url.Parse(defines.APIBaseURL + "items")
 	if err != nil {
@@ -513,7 +510,6 @@ func queryItemReq(itemStruct wawi_structs.QueryItemStruct, pageNumber int) (*htt
 	}
 
 	params := url.Values{}
-	params.Set("kKategorie", itemStruct.ItemCategory)
 	params.Set("pageNumber", strconv.Itoa(pageNumber))
 	params.Set("pageSize", strconv.Itoa(itemStruct.PageSize))
 
@@ -522,6 +518,9 @@ func queryItemReq(itemStruct wawi_structs.QueryItemStruct, pageNumber int) (*htt
 	}
 	if itemStruct.ItemSupplier != "" {
 		params.Set("kHersteller", itemStruct.ItemSupplier)
+	}
+	if itemStruct.ItemCategory != "" {
+		params.Set("kKategorie", itemStruct.ItemCategory)
 	}
 	if itemStruct.ItemID != "" {
 		params.Set("id", itemStruct.ItemID)

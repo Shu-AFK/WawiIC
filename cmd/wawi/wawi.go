@@ -16,16 +16,24 @@ import (
 
 var (
 	NoCategory = errors.New("no category selected")
+	NoSupplier = errors.New("no supplier selected")
 )
 
-func GetItems(query string, selectedCategoryID string) ([]wawi_structs.WItem, error) {
-	if selectedCategoryID == "" || selectedCategoryID == "Kategorien" {
-		return nil, NoCategory
+func GetItems(query string, selectedCategoryID string, selectedSupplierID int) ([]wawi_structs.WItem, error) {
+	if SearchMode == "category" {
+		if selectedCategoryID == "" || selectedCategoryID == "Kategorien" {
+			return nil, NoCategory
+		}
+	} else if SearchMode == "supplier" {
+		if selectedSupplierID == 0 {
+			return nil, NoSupplier
+		}
 	}
 
 	itemQuery := wawi_structs.QueryItemStruct{
 		SearchKeyword: query,
 		ItemCategory:  selectedCategoryID,
+		ItemSupplier:  strconv.Itoa(selectedSupplierID),
 		PageSize:      1000,
 	}
 

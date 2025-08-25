@@ -8,13 +8,11 @@ import (
 )
 
 var SelectedCategoryID string
+var SelectedSupplierID int
 
 // categories: map[parentID][]childID
 // labels: map[ID]Name
 func createSidebarTree(categories map[string][]string, labels map[string]string) *container.Scroll {
-	if wawi.SearchMode == "category" {
-
-	}
 	getChildIDs := func(uid widget.TreeNodeID) []widget.TreeNodeID {
 		children := categories[uid]
 		out := make([]widget.TreeNodeID, len(children))
@@ -52,4 +50,26 @@ func createSidebarTree(categories map[string][]string, labels map[string]string)
 	tree.Root = "root"
 
 	return container.NewVScroll(tree)
+}
+
+func createSupplierList() (*container.Scroll, error) {
+	suppliers, err := wawi.QuerySuppliers()
+	if err != nil {
+		return nil, err
+	}
+
+	list := widget.NewList(
+		func() int { return len(suppliers) },
+		func() fyne.CanvasObject {
+			return widget.NewLabel("template")
+		},
+		func(i widget.ListItemID, o fyne.CanvasObject) {
+			o.(*widget.Label).SetText(suppliers[i].Name)
+		},
+	)
+	list.OnSelected = func(id widget.ListItemID) {
+		SelectedSupplierID = suppliers[id].ID
+	}
+
+	return container.NewVScroll(list), nil
 }

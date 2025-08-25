@@ -17,13 +17,24 @@ func RunGUI() {
 
 	w := WawiIC.NewWindow("WawiIC")
 
-	tree, labels, err := wawi.GetCategories(50)
-	if err != nil {
-		dialog.ShowError(err, w)
-	}
+	var split *container.Split
+	if wawi.SearchMode == "category" {
+		tree, labels, err := wawi.GetCategories(50)
+		if err != nil {
+			dialog.ShowError(err, w)
+			return
+		}
 
-	split := container.NewHSplit(createSidebarTree(tree, labels), createMainWidget(w.Canvas(), WawiIC, w))
-	split.Offset = 0.15
+		split = container.NewHSplit(createSidebarTree(tree, labels), createMainWidget(w.Canvas(), WawiIC, w))
+	} else if wawi.SearchMode == "supplier" {
+		list, err := createSupplierList()
+		if err != nil {
+			dialog.ShowError(err, w)
+			return
+		}
+		split = container.NewHSplit(list, createMainWidget(w.Canvas(), WawiIC, w))
+	}
+	split.Offset = 0.2
 
 	w.CenterOnScreen()
 	w.SetMaster()
