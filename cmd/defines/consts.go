@@ -1,5 +1,11 @@
 package defines
 
+import (
+	"encoding/base64"
+
+	"github.com/Shu-AFK/WawiIC/assets"
+)
+
 const (
 	APIBaseURL      = "http://127.0.0.1:5883/api/eazybusiness/"
 	AppID           = "WawiIC/v1"
@@ -64,6 +70,8 @@ type TokenInfo struct {
 }
 
 func ConstructAppData() *AppData {
+	iconB64 := base64.StdEncoding.EncodeToString(assets.Icon)
+
 	return &AppData{
 		AppId:              AppID,
 		DisplayName:        DisplayName,
@@ -72,6 +80,6 @@ func ConstructAppData() *AppData {
 		ProviderName:       ProviderName,
 		ProviderWebsite:    ProviderWebsite,
 		MandatoryApiScopes: MandatoryAPIScope,
-		AppIcon:            "",
+		AppIcon:            iconB64,
 	}
 }

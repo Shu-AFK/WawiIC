@@ -42,7 +42,11 @@ func LoadConfig(path string) error {
 
 	config = root.Mappings
 	categoryID, err = strconv.Atoi(strings.TrimSpace(root.CategoryID))
+
 	SearchMode = strings.TrimSpace(root.SearchMode)
+	if SearchMode != "category" && SearchMode != "supplier" {
+		return fmt.Errorf("search mode must be either 'category' or 'supplier'")
+	}
 
 	for i, e := range config {
 		e.Category = strings.TrimSpace(e.Category)
