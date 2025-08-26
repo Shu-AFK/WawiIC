@@ -21,7 +21,7 @@ func CheckForAPIKey() error {
 	return nil
 }
 
-func MakeRequest(ctx context.Context, userPrompt string, imagesB64 []string) (*openai_structs.ProductSEO, error) {
+func MakeRequestText(ctx context.Context, userPrompt string) (*openai_structs.ProductSEO, error) {
 	apiKey := os.Getenv(defines.OpenAiApiKeyEnv)
 	if apiKey == "" {
 		return nil, fmt.Errorf("%s is not set", defines.OpenAiApiKeyEnv)
@@ -29,46 +29,11 @@ func MakeRequest(ctx context.Context, userPrompt string, imagesB64 []string) (*o
 
 	client := openaigit.NewClient(option.WithAPIKey(apiKey))
 
-	systemMsg := openaigit.SystemMessage(DevPrompt)
-
-	parts := make([]openaigit.ChatCompletionContentPartUnionParam, 0, 1+len(imagesB64))
-	parts = append(parts, openaigit.ChatCompletionContentPartUnionParam{
-		OfText: &openaigit.ChatCompletionContentPartTextParam{
-			Text: userPrompt,
-		},
-	})
-
-	for _, b64 := range imagesB64 {
-		if strings.TrimSpace(b64) == "" {
-			continue
-		}
-		imgURL := b64
-		if !strings.HasPrefix(b64, "data:") {
-			imgURL = "data:image/jpeg;base64," + b64
-		}
-
-		parts = append(parts, openaigit.ChatCompletionContentPartUnionParam{
-			OfImageURL: &openaigit.ChatCompletionContentPartImageParam{
-				ImageURL: openaigit.ChatCompletionContentPartImageImageURLParam{
-					URL: imgURL,
-				},
-			},
-		})
-	}
-
-	userMsg := openaigit.ChatCompletionMessageParamUnion{
-		OfUser: &openaigit.ChatCompletionUserMessageParam{
-			Content: openaigit.ChatCompletionUserMessageParamContentUnion{
-				OfArrayOfContentParts: parts,
-			},
-		},
-	}
-
 	resp, err := client.Chat.Completions.New(ctx, openaigit.ChatCompletionNewParams{
-		Model: openaigit.ChatModel(Model),
+		Model: openaigit.ChatModel(ModelText),
 		Messages: []openaigit.ChatCompletionMessageParamUnion{
-			systemMsg,
-			userMsg,
+			openaigit.SystemMessage(DevPromptText),
+			openaigit.UserMessage(userPrompt),
 		},
 	})
 	if err != nil {
@@ -80,7 +45,6 @@ func MakeRequest(ctx context.Context, userPrompt string, imagesB64 []string) (*o
 	}
 
 	content := strings.TrimSpace(resp.Choices[0].Message.Content)
-
 	content = strings.TrimPrefix(content, "```json")
 	content = strings.TrimPrefix(content, "```")
 	content = strings.TrimSuffix(content, "```")

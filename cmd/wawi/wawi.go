@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Shu-AFK/WawiIC/cmd/gui/gui_structs"
+	"github.com/Shu-AFK/WawiIC/cmd/imagecomb"
 	"github.com/Shu-AFK/WawiIC/cmd/openai"
 	"github.com/Shu-AFK/WawiIC/cmd/openai/openai_structs"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
@@ -105,17 +106,12 @@ func GetCategories(pageSize int) (map[string][]string, map[string]string, error)
 
 func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int, variations map[string][]string, labels map[string]string) (string, error) {
 	productNames, variationLabels, oldSKUs := buildPromptInputs(combinations, selectedCombinationIndex)
-	images, err := getImagesAndBase64(combinations)
-	if err != nil {
-		return "", err
-	}
 
 	productSEO, err := generateSEO(
 		productNames,
 		combinations[selectedCombinationIndex].Item.GetItem.Description,
 		variationLabels,
 		oldSKUs,
-		images,
 	)
 	if err != nil {
 		return "", err
@@ -134,6 +130,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 
 	descriptionChannel := make(chan error, 1)
 	propertyChannel := make(chan error, 1)
+	imageChannel := make(chan error, 1)
 	type variantsResponse struct {
 		order          []string
 		valueIdByLabel map[string]map[string]string
@@ -146,14 +143,27 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		if err := setActiveSalesChannels(item.ID, combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels); err != nil {
 			return "", err
 		}
-		if err := gatherAndUploadImages(item.ID, combinations, selectedCombinationIndex); err != nil {
-			return "", err
-		}
 	*/
 
 	// Meta description
 	go func() {
 		descriptionChannel <- UpdateDescription(strconv.Itoa(item.ID), *productSEO)
+	}()
+
+	go func() {
+		images, err := getImagesAndBase64(combinations)
+		if err != nil {
+			imageChannel <- err
+			return
+		}
+
+		img, err := imagecomb.CombineImages(images)
+		if err != nil {
+			imageChannel <- err
+			return
+		}
+
+		imageChannel <- uploadCombinedImage(img, *item)
 	}()
 
 	go func() {
@@ -186,6 +196,9 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	}()
 
 	if err := <-descriptionChannel; err != nil {
+		return "", err
+	}
+	if err := <-imageChannel; err != nil {
 		return "", err
 	}
 	if err := <-propertyChannel; err != nil {
@@ -222,10 +235,10 @@ func buildPromptInputs(combinations []gui_structs.Combination, selectedIdx int) 
 	return productNames, variationLabels, oldSKUs
 }
 
-func generateSEO(productNames []string, selectedDescription string, variationLabels string, oldSKUs []string, images []string) (*openai_structs.ProductSEO, error) {
-	userPrompt := openai.GetUserPrompt(productNames, selectedDescription, variationLabels, oldSKUs)
+func generateSEO(productNames []string, selectedDescription string, variationLabels string, oldSKUs []string) (*openai_structs.ProductSEO, error) {
+	userPrompt := openai.GetUserPromptText(productNames, selectedDescription, variationLabels, oldSKUs)
 	ctx := context.Background()
-	return openai.MakeRequest(ctx, userPrompt, images)
+	return openai.MakeRequestText(ctx, userPrompt)
 }
 
 func collectItemsFromCombinations(combinations []gui_structs.Combination) []wawi_structs.GetItem {
@@ -238,34 +251,6 @@ func collectItemsFromCombinations(combinations []gui_structs.Combination) []wawi
 
 func setActiveSalesChannels(itemID int, channels []string) error {
 	return SetItemActiveSalesChannels(strconv.Itoa(itemID), channels)
-}
-
-func gatherAndUploadImages(parentItemID int, combinations []gui_structs.Combination, selectedIdx int) error {
-	var images []wawi_structs.CreateImageStruct
-
-	firstImages, err := GetImagesFromItem(combinations[selectedIdx].Item.GetItem)
-	if err != nil {
-		return err
-	}
-	images = append(images, firstImages...)
-
-	for _, i := range combinations {
-		if i.Item.GetItem.SKU == combinations[selectedIdx].Item.GuiItem.SKU {
-			continue
-		}
-		imageBuffer, err := GetImagesFromItem(i.Item.GetItem)
-		if err != nil {
-			return err
-		}
-		images = append(images, imageBuffer...)
-	}
-
-	for _, image := range images {
-		if err := CreateItemImage(image, strconv.Itoa(parentItemID)); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func collectUniquePropertyValueIDs(combinations []gui_structs.Combination) ([]string, error) {
@@ -469,7 +454,7 @@ func getImagesAndBase64(combinations []gui_structs.Combination) ([]string, error
 	images := make([]string, 0, len(combinations))
 
 	for _, c := range combinations {
-		path := fmt.Sprintf("%s.jpg", c.Item.GuiItem.SKU)
+		path := fmt.Sprintf("%s%s-1.jpg", PathToFolder, c.Item.GuiItem.SKU)
 
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -485,4 +470,25 @@ func getImagesAndBase64(combinations []gui_structs.Combination) ([]string, error
 	}
 
 	return images, nil
+}
+
+func uploadCombinedImage(imgB64 string, item wawi_structs.GetItem) error {
+	fmt.Printf("B64: %s\n", imgB64)
+	cleaned, err := normalizeBase64(imgB64)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Cleaned: %s\n", cleaned)
+
+	imgStruct := wawi_structs.CreateImageStruct{
+		ImageData:      cleaned,
+		Filename:       item.SKU + ".jpg",
+		SalesChannelId: "1-1-1",
+	}
+
+	if err := CreateItemImage(imgStruct, strconv.Itoa(item.ID)); err != nil {
+		return err
+	}
+
+	return nil
 }

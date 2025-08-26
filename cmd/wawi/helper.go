@@ -1,6 +1,8 @@
 package wawi
 
 import (
+	"encoding/base64"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -99,14 +101,20 @@ func childNameFromVariationID(variationID string, labels map[string]string) (str
 
 func addCategoryToParent(categories []wawi_structs.Category) []wawi_structs.Category {
 	ret := make([]wawi_structs.Category, 0, len(categories)+1)
+	checkCategoryAlreadyAdded := false
 
 	for _, c := range categories {
+		if c.CategoryID == categoryID {
+			checkCategoryAlreadyAdded = true
+		}
 		ret = append(ret, c)
 	}
 
-	ret = append(ret, wawi_structs.Category{
-		CategoryID: categoryID,
-	})
+	if !checkCategoryAlreadyAdded {
+		ret = append(ret, wawi_structs.Category{
+			CategoryID: categoryID,
+		})
+	}
 	return ret
 }
 
@@ -121,4 +129,16 @@ func uniqueStrings(in []string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+func normalizeBase64(b64 string) (string, error) {
+	re := regexp.MustCompile(`\s+`)
+	b64 = re.ReplaceAllString(b64, "")
+
+	_, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return "", err
+	}
+
+	return b64, nil
 }

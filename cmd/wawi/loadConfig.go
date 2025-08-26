@@ -18,7 +18,7 @@ type ConfigEntry struct {
 type configRoot struct {
 	SearchMode   string        `json:"search mode"`
 	CategoryID   string        `json:"category id"`
-	PathToFolder string        `json:"path to folder"`
+	PathToFolder string        `json:"path to image folder"`
 	Mappings     []ConfigEntry `json:"mappings"`
 }
 
@@ -52,7 +52,7 @@ func LoadConfig(path string) error {
 
 	PathToFolder = strings.TrimSpace(root.PathToFolder)
 	if PathToFolder == "" {
-		return errors.New("path to folder must not be empty")
+		return errors.New("path to image folder must not be empty")
 	}
 
 	for i, e := range config {

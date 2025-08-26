@@ -64,6 +64,8 @@ func main() {
 		}
 	}
 
+	fmt.Println(wawi.QuerySalesChannels())
+
 	err = openai.CheckForAPIKey()
 	if err != nil {
 		panic(err)

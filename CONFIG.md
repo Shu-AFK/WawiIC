@@ -1,28 +1,25 @@
-
 # Configuration Guide
 
 This document describes the required structure and location for the configuration file used by the application.
 
 ## File Location
-
-Place the configuration file at: config/config.json
+Place the configuration file at: `config/config.json`
 
 ## File Format
-
 - File type: JSON
 - Structure: A top-level object with:
-  - `search mode`: string — selects how items are searched; must be either `"category"` or `"supplier"`
-  - `category id`: string, the selected category ID (non-empty)
-  - `mappings`: array of entries (objects)
-  - Each entry in `mappings` must include the following fields:
-    - `category`: string — the category name (non-empty)
-    - `shop website`: string — a valid URL (HTTPS recommended)
+    - `search mode`: string — selects how items are searched; must be either `"category"` or `"supplier"`.
+    - `category id`: string — the selected category ID (non-empty).
+    - `path to folder`: string — absolute path to the local folder containing your images (non-empty). Each image must be named as follows: `{itemSKU}-{itemImageNumber}.jpg`
+    - `mappings`: array of entries (objects):
+        - `category`: string — the category name (non-empty).
+        - `shop website`: string — a valid URL (HTTPS recommended).
 
 Notes:
-- Keys are case-sensitive and must match exactly (including the space in `shop website` and in `category id`, and the space in `search mode`).
-- `search mode` accepts only two values: `"category"` or `"supplier"`.
+- Keys are case-sensitive and must match exactly, including spaces (e.g., `search mode`, `category id`, `path to folder`, `shop website`).
 - JSON does not allow comments or trailing commas.
 - Use UTF-8 encoding.
+
 
 ## Example
 
@@ -30,7 +27,8 @@ Notes:
 {
   "search mode": "category",
   "category id": "155",
-    "mappings": 
+  "path to folder": "C:\\Users\\your-username\\Pictures\\JTL-Wawi-Images",
+  "mappings": 
     [
       {
         "category": "Electronics",
