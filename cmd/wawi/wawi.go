@@ -1,9 +1,13 @@
 package wawi
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"image"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -101,12 +105,17 @@ func GetCategories(pageSize int) (map[string][]string, map[string]string, error)
 
 func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int, variations map[string][]string, labels map[string]string) (string, error) {
 	productNames, variationLabels, oldSKUs := buildPromptInputs(combinations, selectedCombinationIndex)
+	images, err := getImagesAndBase64(combinations)
+	if err != nil {
+		return "", err
+	}
 
 	productSEO, err := generateSEO(
 		productNames,
 		combinations[selectedCombinationIndex].Item.GetItem.Description,
 		variationLabels,
 		oldSKUs,
+		images,
 	)
 	if err != nil {
 		return "", err
@@ -213,10 +222,10 @@ func buildPromptInputs(combinations []gui_structs.Combination, selectedIdx int) 
 	return productNames, variationLabels, oldSKUs
 }
 
-func generateSEO(productNames []string, selectedDescription string, variationLabels string, oldSKUs []string) (*openai_structs.ProductSEO, error) {
+func generateSEO(productNames []string, selectedDescription string, variationLabels string, oldSKUs []string, images []string) (*openai_structs.ProductSEO, error) {
 	userPrompt := openai.GetUserPrompt(productNames, selectedDescription, variationLabels, oldSKUs)
 	ctx := context.Background()
-	return openai.MakeRequest(ctx, userPrompt)
+	return openai.MakeRequest(ctx, userPrompt, images)
 }
 
 func collectItemsFromCombinations(combinations []gui_structs.Combination) []wawi_structs.GetItem {
@@ -454,4 +463,26 @@ func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.Get
 	}
 
 	return parentItem
+}
+
+func getImagesAndBase64(combinations []gui_structs.Combination) ([]string, error) {
+	images := make([]string, 0, len(combinations))
+
+	for _, c := range combinations {
+		path := fmt.Sprintf("%s.jpg", c.Item.GuiItem.SKU)
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("can't read image %s: %w", path, err)
+		}
+
+		if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
+			return nil, fmt.Errorf("decode %s: %w", path, err)
+		}
+
+		b64 := base64.StdEncoding.EncodeToString(data)
+		images = append(images, b64)
+	}
+
+	return images, nil
 }

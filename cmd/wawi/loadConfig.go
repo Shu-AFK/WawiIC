@@ -16,13 +16,15 @@ type ConfigEntry struct {
 }
 
 type configRoot struct {
-	SearchMode string        `json:"search mode"`
-	CategoryID string        `json:"category id"`
-	Mappings   []ConfigEntry `json:"mappings"`
+	SearchMode   string        `json:"search mode"`
+	CategoryID   string        `json:"category id"`
+	PathToFolder string        `json:"path to folder"`
+	Mappings     []ConfigEntry `json:"mappings"`
 }
 
 var config []ConfigEntry
 var SearchMode string
+var PathToFolder string
 var categoryID int
 
 func LoadConfig(path string) error {
@@ -46,6 +48,11 @@ func LoadConfig(path string) error {
 	SearchMode = strings.TrimSpace(root.SearchMode)
 	if SearchMode != "category" && SearchMode != "supplier" {
 		return fmt.Errorf("search mode must be either 'category' or 'supplier'")
+	}
+
+	PathToFolder = strings.TrimSpace(root.PathToFolder)
+	if PathToFolder == "" {
+		return errors.New("path to folder must not be empty")
 	}
 
 	for i, e := range config {

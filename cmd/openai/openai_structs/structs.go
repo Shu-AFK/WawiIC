@@ -7,4 +7,5 @@ type ProductSEO struct {
 	ShortDescription    string   `json:"short_description"`
 	Description         string   `json:"description"`
 	NewSKU              string   `json:"new_sku"`
+	Image               string   `json:"combined_image_base64"`
 }
