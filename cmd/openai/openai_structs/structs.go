@@ -8,7 +8,3 @@ type ProductSEO struct {
 	Description         string   `json:"description"`
 	NewSKU              string   `json:"new_sku"`
 }
-
-type CombinedImage struct {
-	Image string `json:"image"`
-}

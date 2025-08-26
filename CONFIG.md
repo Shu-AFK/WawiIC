@@ -11,6 +11,7 @@ Place the configuration file at: `config/config.json`
     - `search mode`: string — selects how items are searched; must be either `"category"` or `"supplier"`.
     - `category id`: string — the selected category ID (non-empty).
     - `path to folder`: string — absolute path to the local folder containing your images (non-empty). Each image must be named as follows: `{itemSKU}-{itemImageNumber}.jpg`
+    - `activate sales channel`: bool - if `true`, the application will enable all sales channels on the parent item automatically.
     - `mappings`: array of entries (objects):
         - `category`: string — the category name (non-empty).
         - `shop website`: string — a valid URL (HTTPS recommended).
@@ -28,6 +29,7 @@ Notes:
   "search mode": "category",
   "category id": "155",
   "path to folder": "C:\\Users\\your-username\\Pictures\\JTL-Wawi-Images",
+  "activate sales channel": true,
   "mappings": 
     [
       {

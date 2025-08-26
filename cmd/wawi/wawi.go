@@ -128,6 +128,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		return "", errors.New("item is not active")
 	}
 
+	activateSalesChannel := make(chan error, 1)
 	descriptionChannel := make(chan error, 1)
 	propertyChannel := make(chan error, 1)
 	imageChannel := make(chan error, 1)
@@ -139,11 +140,13 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	}
 	variationsChannel := make(chan variantsResponse, 1)
 
-	/*
-		if err := setActiveSalesChannels(item.ID, combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels); err != nil {
-			return "", err
-		}
-	*/
+	if ActivateSalesChannel {
+		go func() {
+			activateSalesChannel <- setActiveSalesChannels(item.ID, combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels)
+		}()
+	} else {
+		activateSalesChannel <- nil
+	}
 
 	// Meta description
 	go func() {
@@ -195,6 +198,9 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		}
 	}()
 
+	if err := <-activateSalesChannel; err != nil {
+		return "", err
+	}
 	if err := <-descriptionChannel; err != nil {
 		return "", err
 	}
