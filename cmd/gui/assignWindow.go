@@ -162,45 +162,69 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 			dialog.ShowInformation("Achtung!", "Bitte kombiniere zuerst alle Artikel..", w)
 			return
 		}
-		if selectedCombinationIndex < 0 {
-			dialog.ShowInformation("Achtung!", "Bitte wähle einen Artikel aus, von welchem das Bild an erster Stelle sein soll.", w)
-			return
-		}
 
-		dialog.ShowConfirm("Achtung!", "Ist die ausgewählte Artikel/Variations-Kombination das Bild, welches als erstes beim Vaterartikel erscheinen soll?", func(b bool) {
-			if !b {
-				return
-			}
+		entry := widget.NewEntry()
+		d := dialog.NewForm(
+			"SKU des Vaterartikels",
+			"Speichern",
+			"Abbrechen",
+			[]*widget.FormItem{
+				widget.NewFormItem("SKU", entry),
+			},
+			func(confirmed bool) {
+				if !confirmed {
+					return
+				}
 
-			spinner := widget.NewProgressBarInfinite()
-			waitDlg := dialog.NewCustomWithoutButtons(
-				"Bitte warten",
-				container.NewVBox(
-					widget.NewLabel("Vorgang läuft…"),
-					spinner,
-				),
-				w,
-			)
-			waitDlg.Show()
+				sku := strings.TrimSpace(entry.Text)
+				if sku == "" {
+					dialog.ShowInformation("Ungültige Eingabe", "Bitte eine SKU eingeben.", w)
+					return
+				}
 
-			go func() {
-				SKU, err := wawi.HandleAssignDone(combinedItems, selectedCombinationIndex, variations, labels)
+				existsAlready, err := wawi.CheckIfSKUExists(sku)
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
+					fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
+					return
+				}
 
-				fyne.Do(func() {
-					waitDlg.Hide()
+				if existsAlready {
+					dialog.ShowInformation("Achtung!", "Diese SKU existiert bereits.", w)
+					fmt.Println(fmt.Sprintf("Diese SKU existiert bereits: %s", sku))
+					return
+				}
 
-					if err != nil {
-						dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
-						fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
-						return
-					}
+				spinner := widget.NewProgressBarInfinite()
+				waitDlg := dialog.NewCustomWithoutButtons(
+					"Bitte warten",
+					container.NewVBox(
+						widget.NewLabel("Vorgang läuft…"),
+						spinner),
+					w,
+				)
+				waitDlg.Show()
 
-					FatherSKU = SKU
-					w.Close()
-				})
+				go func() {
+					SKU, err := wawi.HandleAssignDone(combinedItems, variations, labels, sku)
 
-			}()
-		}, w)
+					fyne.Do(func() {
+						waitDlg.Hide()
+
+						if err != nil {
+							dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
+							fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
+							return
+						}
+
+						FatherSKU = SKU
+						w.Close()
+					})
+				}()
+			},
+			w,
+		)
+		d.Show()
 	})
 
 	leftPanel := container.NewBorder(

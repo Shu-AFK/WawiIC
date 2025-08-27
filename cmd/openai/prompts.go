@@ -22,7 +22,6 @@ const (
 		"\n  - H3 Überschriften für Details" +
 		"\n- Formatierung: HTML für Kurz- und Hauptbeschreibung." +
 		"\n- Schreibe so, dass man nicht erkennt, dass der Text von einer KI erstellt wurde." +
-		"\n- **Neue SKU**: Erste Zahl der alten SKU + '-VA-' + eindeutige Abkürzung aus Artikelname. (6 Buchstaben lang)" +
 		"\n- **Kombinierter Artikelname**: max. 90 Zeichen, fasse Varianten sinnvoll zusammen (Beispiele: 'Mipa Steinschlagschutzspray Schwarz oder Weiß (400ml)' wenn alle variations Möglichkeiten in das 90 zeichen limit passen oder 'Mipa Steinschlagschutzspray in vielen Farben (400ml)', wenn die 90 Zeichen nicht ausreichen)." +
 		"\n\nDie Antwort muss **immer** als gültiges JSON im folgenden Format ausgegeben werden:" +
 		"\n\n{" +
@@ -31,7 +30,6 @@ const (
 		"\n  \"combined_article_name\": \"Kombinierter Vaterartikelname (max. 90 Zeichen)\"," +
 		"\n  \"short_description\": \"<p>HTML Kurzbeschreibung</p>\"," +
 		"\n  \"description\": \"<h2>Produktbeschreibung</h2><p>...</p><h3>...</h3>\"," +
-		"\n  \"new_sku\": \"Neue SKU gemäß Regel\", " +
 		"\n}"
 )
 

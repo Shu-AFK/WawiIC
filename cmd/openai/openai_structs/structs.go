@@ -6,5 +6,4 @@ type ProductSEO struct {
 	CombinedArticleName string   `json:"combined_article_name"`
 	ShortDescription    string   `json:"short_description"`
 	Description         string   `json:"description"`
-	NewSKU              string   `json:"new_sku"`
 }

@@ -16,7 +16,7 @@ import (
 const (
 	trimThreshold = 8
 	minPixel      = 50
-	quality       = 90
+	quality       = 100
 )
 
 func CombineImages(base64Images []string) (string, error) {

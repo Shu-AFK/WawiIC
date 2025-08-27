@@ -104,12 +104,31 @@ func GetCategories(pageSize int) (map[string][]string, map[string]string, error)
 	return tree, labels, nil
 }
 
-func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinationIndex int, variations map[string][]string, labels map[string]string) (string, error) {
-	productNames, variationLabels, oldSKUs := buildPromptInputs(combinations, selectedCombinationIndex)
+func CheckIfSKUExists(sku string) (bool, error) {
+	itemQuery := wawi_structs.QueryItemStruct{
+		SearchKeyword: sku,
+		PageSize:      5,
+	}
+
+	items, err := QueryItem(itemQuery)
+	if err != nil {
+		return false, err
+	}
+
+	return len(items) > 0, nil
+}
+
+func HandleAssignDone(combinations []gui_structs.Combination, variations map[string][]string, labels map[string]string, sku string) (string, error) {
+	productNames, variationLabels, oldSKUs := buildPromptInputs(combinations)
+
+	images, err := getImagesAndBase64(combinations)
+	if err != nil {
+		return "", err
+	}
 
 	productSEO, err := generateSEO(
 		productNames,
-		combinations[selectedCombinationIndex].Item.GetItem.Description,
+		combinations[0].Item.GetItem.Description,
 		variationLabels,
 		oldSKUs,
 	)
@@ -118,7 +137,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	}
 
 	items := collectItemsFromCombinations(combinations)
-	parentItem := createParentStruct(productSEO, items)
+	parentItem := createParentStruct(productSEO, items, sku)
 
 	item, err := CreateParentItem(parentItem)
 	if err != nil {
@@ -142,7 +161,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 
 	if ActivateSalesChannel {
 		go func() {
-			activateSalesChannel <- setActiveSalesChannels(item.ID, combinations[selectedCombinationIndex].Item.GetItem.ActiveSalesChannels)
+			activateSalesChannel <- setActiveSalesChannels(item.ID, combinations[0].Item.GetItem.ActiveSalesChannels)
 		}()
 	} else {
 		activateSalesChannel <- nil
@@ -153,21 +172,17 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 		descriptionChannel <- UpdateDescription(strconv.Itoa(item.ID), *productSEO)
 	}()
 
-	go func() {
-		images, err := getImagesAndBase64(combinations)
-		if err != nil {
-			imageChannel <- err
-			return
-		}
+	if len(images) > 0 {
+		go func() {
+			img, err := imagecomb.CombineImages(images)
+			if err != nil {
+				imageChannel <- err
+				return
+			}
 
-		img, err := imagecomb.CombineImages(images)
-		if err != nil {
-			imageChannel <- err
-			return
-		}
-
-		imageChannel <- uploadCombinedImage(img, *item)
-	}()
+			imageChannel <- uploadCombinedImage(img, *item)
+		}()
+	}
 
 	go func() {
 		propIDs, err := collectUniquePropertyValueIDs(combinations)
@@ -222,7 +237,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, selectedCombinatio
 	return parentItem.SKU, nil
 }
 
-func buildPromptInputs(combinations []gui_structs.Combination, selectedIdx int) ([]string, string, []string) {
+func buildPromptInputs(combinations []gui_structs.Combination) ([]string, string, []string) {
 	productNames := make([]string, 0, len(combinations))
 	variationLabels := "["
 	oldSKUs := make([]string, 0, len(combinations))
@@ -237,7 +252,6 @@ func buildPromptInputs(combinations []gui_structs.Combination, selectedIdx int) 
 	}
 	variationLabels += "]"
 
-	_ = selectedIdx // kept for symmetry; currently only used by caller to pass desc
 	return productNames, variationLabels, oldSKUs
 }
 
@@ -408,15 +422,10 @@ func PtrIfSet[T comparable](v T) *T {
 	return &v
 }
 
-func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.GetItem) wawi_structs.ItemCreate {
+func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.GetItem, newSKU string) wawi_structs.ItemCreate {
 	cheapestItemIndex := findCheapestItem(items)
 	dangerousStruct := getItemDangerous(items)
 	searchTerms := getSearchTerms(items)
-
-	_, seoSKUSplit, _ := strings.Cut(seo.NewSKU, "-")
-	pNum, _, _ := strings.Cut(items[cheapestItemIndex].SKU, "-")
-
-	newSKU := fmt.Sprintf("%s-%s", pNum, seoSKUSplit)
 
 	ts := time.Now().UTC().Format(time.RFC3339)
 
@@ -430,7 +439,7 @@ func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.Get
 		Description:         seo.Description,
 		ShortDescription:    seo.ShortDescription,
 		Identifiers: &wawi_structs.Identifiers{
-			ManufacturerNumber: PtrIfSet(removeUpToFirstDash(seo.NewSKU)),
+			ManufacturerNumber: PtrIfSet(removeUpToFirstDash(newSKU)),
 		},
 		ItemPriceData: &wawi_structs.ItemPriceData{
 			SalesPriceNet:        items[cheapestItemIndex].ItemPriceData.SalesPriceNet,
@@ -464,7 +473,8 @@ func getImagesAndBase64(combinations []gui_structs.Combination) ([]string, error
 
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("can't read image %s: %w", path, err)
+			fmt.Fprintf(os.Stderr, "no image %s: %v\n", path, err)
+			continue
 		}
 
 		if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
@@ -479,12 +489,10 @@ func getImagesAndBase64(combinations []gui_structs.Combination) ([]string, error
 }
 
 func uploadCombinedImage(imgB64 string, item wawi_structs.GetItem) error {
-	fmt.Printf("B64: %s\n", imgB64)
 	cleaned, err := normalizeBase64(imgB64)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Cleaned: %s\n", cleaned)
 
 	imgStruct := wawi_structs.CreateImageStruct{
 		ImageData:      cleaned,
