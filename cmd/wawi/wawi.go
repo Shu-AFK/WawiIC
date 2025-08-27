@@ -182,6 +182,8 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 
 			imageChannel <- uploadCombinedImage(img, *item)
 		}()
+	} else {
+		imageChannel <- nil
 	}
 
 	go func() {
