@@ -9,6 +9,7 @@ WawiIC is a **Go-based GUI application** designed as an add-on for the **JTL Waw
 - **Querying and selecting items** from your inventory
 - **Combining them into a parent article** (e.g., for size/color variations)
 - **Automatically optimizing the parent item's description** using OpenAI's ChatGPT
+- **Automatically creating an image containing the child items**
 - **Creating the new parent item** and linking all selected items as children
 
 Perfect for managing product variants efficiently!  
