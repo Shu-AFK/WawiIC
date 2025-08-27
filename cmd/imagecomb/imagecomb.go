@@ -11,12 +11,16 @@ import (
 	"log"
 	"math"
 	"strings"
+
+	xdraw "golang.org/x/image/draw"
 )
 
 const (
 	trimThreshold = 8
 	minPixel      = 50
 	quality       = 100
+	targetW       = 1920
+	targetH       = 1080
 )
 
 func CombineImages(base64Images []string) (string, error) {
@@ -92,8 +96,31 @@ func CombineImages(base64Images []string) (string, error) {
 		}
 	}
 
+	// Scale the combined image to 1920x1080
+	combinedBounds := combined.Bounds()
+	combinedW := combinedBounds.Dx()
+	combinedH := combinedBounds.Dy()
+
+	scale := math.Min(math.Min(float64(targetW)/float64(combinedW), float64(targetH)/float64(combinedH)), 1)
+	scaledW := int(math.Max(1, math.Round(float64(combinedW)*scale)))
+	scaledH := int(math.Max(1, math.Round(float64(combinedH)*scale)))
+
+	scaledFinal := scaleImage(combined, scaledW, scaledH)
+
+	finalCanvas := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
+	draw.Draw(finalCanvas, finalCanvas.Bounds(), white, image.Point{}, draw.Src)
+
+	offsetX := (targetW - scaledW) / 2
+	offsetY := (targetH - scaledH) / 2
+	draw.Draw(finalCanvas,
+		image.Rect(offsetX, offsetY, offsetX+scaledW, offsetY+scaledH),
+		scaledFinal,
+		image.Point{},
+		draw.Over,
+	)
+
 	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, combined, &jpeg.Options{Quality: quality}); err != nil {
+	if err := jpeg.Encode(&buf, finalCanvas, &jpeg.Options{Quality: quality}); err != nil {
 		return "", fmt.Errorf("failed to encode combined image: %w", err)
 	}
 
@@ -153,20 +180,10 @@ func scaleImageToHeight(img image.Image, targetHeight int) *image.RGBA {
 	// Preserve aspect ratio
 	newWidth := (originalWidth * targetHeight) / originalHeight
 
-	scaled := image.NewRGBA(image.Rect(0, 0, newWidth, targetHeight))
-
-	// Nearest neighbor scaling
-	for y := 0; y < targetHeight; y++ {
-		for x := 0; x < newWidth; x++ {
-			origX := (x * originalWidth) / newWidth
-			origY := (y * originalHeight) / targetHeight
-
-			pixel := img.At(origX+bounds.Min.X, origY+bounds.Min.Y)
-			scaled.Set(x, y, pixel)
-		}
-	}
-
-	return scaled
+	dst := image.NewRGBA(image.Rect(0, 0, newWidth, targetHeight))
+	// High-quality scaler (Catmull-Rom). Alternatives: xdraw.ApproxBiLinear (fast), xdraw.BiLinear, xdraw.Lanczos3 (sharper).
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, bounds, xdraw.Over, nil)
+	return dst
 }
 
 func decodeBase64Image(base64Str string) (image.Image, error) {
@@ -188,4 +205,11 @@ func decodeBase64Image(base64Str string) (image.Image, error) {
 	}
 
 	return img, nil
+}
+
+func scaleImage(img image.Image, newWidth, newHeight int) *image.RGBA {
+	// Generic high-quality scaler for arbitrary target size.
+	dst := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), xdraw.Over, nil)
+	return dst
 }
