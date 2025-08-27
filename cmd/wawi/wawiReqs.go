@@ -2,7 +2,6 @@ package wawi
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -197,44 +196,6 @@ func QueryCategories(pageSize int) ([]wawi_structs.CategoryItem, error) {
 	}
 
 	return categories, nil
-}
-
-func GetImagesFromItem(item wawi_structs.GetItem) ([]wawi_structs.CreateImageStruct, error) {
-	shopUrl, err := findShopUrlItem(item)
-	if err != nil {
-		return nil, err
-	}
-
-	var images []wawi_structs.CreateImageStruct
-	for i := 1; ; i++ {
-		reqUrl := fmt.Sprintf("%s/dbeS/bild.php?a=%d&n=%d&url=0&s=1", shopUrl, item.ID, i)
-		resp, err := http.Get(reqUrl)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			break
-		}
-
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		base64Data := base64.StdEncoding.EncodeToString(data)
-
-		for _, id := range item.ActiveSalesChannels {
-			images = append(images, wawi_structs.CreateImageStruct{
-				ImageData:      base64Data,
-				Filename:       fmt.Sprintf("%s/%d.jpg", item.SKU, i),
-				SalesChannelId: id,
-			})
-		}
-	}
-
-	return images, nil
 }
 
 func CreateItemImage(imageStruct wawi_structs.CreateImageStruct, itemID string) error {
@@ -572,16 +533,4 @@ func wawiCreateRequest(method string, url string, body io.Reader) (*http.Respons
 	}
 
 	return resp, nil
-}
-
-func findShopUrlItem(item wawi_structs.GetItem) (string, error) {
-	for _, c := range item.Categories {
-		category := strings.Split(*c.Name, "->")[0]
-		for _, s := range config {
-			if *c.Name == category {
-				return s.ShopWebsite, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("shop not found in config")
 }

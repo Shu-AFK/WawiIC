@@ -4,26 +4,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
 )
 
-type ConfigEntry struct {
-	Category    string `json:"category"`
-	ShopWebsite string `json:"shop website"`
-}
-
 type configRoot struct {
-	SearchMode           string        `json:"search mode"`
-	CategoryID           string        `json:"category id"`
-	PathToFolder         string        `json:"path to image folder"`
-	ActivateSalesChannel bool          `json:"activate sales channel"`
-	Mappings             []ConfigEntry `json:"mappings"`
+	SearchMode           string `json:"search mode"`
+	CategoryID           string `json:"category id"`
+	PathToFolder         string `json:"path to image folder"`
+	ActivateSalesChannel bool   `json:"activate sales channel"`
 }
 
-var config []ConfigEntry
 var SearchMode string
 var PathToFolder string
 var ActivateSalesChannel bool
@@ -40,11 +32,6 @@ func LoadConfig(path string) error {
 		return fmt.Errorf("parse JSON: %w", err)
 	}
 
-	if len(root.Mappings) == 0 {
-		return errors.New("config must contain at least one mapping")
-	}
-
-	config = root.Mappings
 	categoryID, err = strconv.Atoi(strings.TrimSpace(root.CategoryID))
 
 	SearchMode = strings.TrimSpace(root.SearchMode)
@@ -59,25 +46,6 @@ func LoadConfig(path string) error {
 
 	ActivateSalesChannel = false
 	ActivateSalesChannel = root.ActivateSalesChannel
-
-	for i, e := range config {
-		e.Category = strings.TrimSpace(e.Category)
-		e.ShopWebsite = strings.TrimSpace(e.ShopWebsite)
-
-		if e.Category == "" {
-			return fmt.Errorf("entry %d: category must not be empty", i)
-		}
-		u, err := url.Parse(e.ShopWebsite)
-		if err != nil || u.Scheme == "" || u.Host == "" {
-			return fmt.Errorf("entry %d: shop website must be a valid URL", i)
-		}
-
-		if u.Scheme != "https" {
-			fmt.Fprintf(os.Stderr, "warning: entry %d uses non-HTTPS URL: %s\n", i, e.ShopWebsite)
-		}
-
-		config[i] = e
-	}
 
 	return nil
 }
