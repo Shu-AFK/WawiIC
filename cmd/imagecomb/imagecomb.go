@@ -21,6 +21,7 @@ const (
 	quality       = 100
 	targetW       = 1920
 	targetH       = 1080
+	padding       = 100
 )
 
 func CombineImages(base64Images []string) (string, error) {
@@ -101,7 +102,13 @@ func CombineImages(base64Images []string) (string, error) {
 	combinedW := combinedBounds.Dx()
 	combinedH := combinedBounds.Dy()
 
-	scale := math.Min(math.Min(float64(targetW)/float64(combinedW), float64(targetH)/float64(combinedH)), 1)
+	contentW := targetW - 2*padding
+	contentH := targetH - 2*padding
+	if contentW <= 0 || contentH <= 0 {
+		return "", fmt.Errorf("invalid target size or padding")
+	}
+
+	scale := math.Min(math.Min(float64(contentW)/float64(combinedW), float64(contentH)/float64(combinedH)), 1)
 	scaledW := int(math.Max(1, math.Round(float64(combinedW)*scale)))
 	scaledH := int(math.Max(1, math.Round(float64(combinedH)*scale)))
 
@@ -110,8 +117,9 @@ func CombineImages(base64Images []string) (string, error) {
 	finalCanvas := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
 	draw.Draw(finalCanvas, finalCanvas.Bounds(), white, image.Point{}, draw.Src)
 
-	offsetX := (targetW - scaledW) / 2
-	offsetY := (targetH - scaledH) / 2
+	// Center inside the content area that has padding pixels as margins on all sides
+	offsetX := padding + (contentW-scaledW)/2
+	offsetY := padding + (contentH-scaledH)/2
 	draw.Draw(finalCanvas,
 		image.Rect(offsetX, offsetY, offsetX+scaledW, offsetY+scaledH),
 		scaledFinal,

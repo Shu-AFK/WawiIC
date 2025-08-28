@@ -26,7 +26,7 @@ func main() {
 	}
 
 	if !strings.EqualFold(filepath.Ext(cfgPath), ".json") {
-		fmt.Fprintf(os.Stderr, "error: -c must point to a .json file (got %q)\n", cfgPath)
+		fmt.Fprintf(os.Stderr, "error: -config must point to a .json file (got %q)\n", cfgPath)
 		os.Exit(2)
 	}
 	if _, err := os.Stat(cfgPath); err != nil {

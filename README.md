@@ -37,6 +37,6 @@ Perfect for managing product variants efficiently!
    go build -o WawiIC.exe
    ```
 
-2. Configure your config according to [CONFIG.md](CONFIG.md) and place it in a folder called "config" in the same directory as the exe, or specify the path to the config file using the argument "-c". 
+2. Configure your config according to [CONFIG.md](CONFIG.md) and place it in a folder called "config" in the same directory as the exe, or specify the path to the config file using the argument "-config {path to config.json}". 
 
 3. Run the exe

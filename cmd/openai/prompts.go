@@ -30,6 +30,7 @@ const (
 		"\n  \"combined_article_name\": \"Kombinierter Vaterartikelname (max. 90 Zeichen)\"," +
 		"\n  \"short_description\": \"<p>HTML Kurzbeschreibung</p>\"," +
 		"\n  \"description\": \"<h2>Produktbeschreibung</h2><p>...</p><h3>...</h3>\"," +
+		"\n  \"seo_titel\": \"<h2>Produktbeschreibung</h2><p>...</p><h3>...</h3>\"," +
 		"\n}"
 )
 
