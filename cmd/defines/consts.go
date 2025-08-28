@@ -7,7 +7,6 @@ import (
 )
 
 const (
-	APIBaseURL      = "http://127.0.0.1:5883/api/eazybusiness/"
 	AppID           = "WawiIC/v1"
 	DisplayName     = "WawiIC"
 	Description     = "Artikel zu Vaterartikeln zusammenführen"
@@ -20,6 +19,8 @@ const (
 	OpenAiApiKeyEnv = "OPENAI_API_KEY"
 	ConfigPath      = "config/config.json"
 )
+
+var APIBaseURL = "http://127.0.0.1:5883/api/eazybusiness/"
 
 var MandatoryAPIScope = []string{
 	"category.querycategories",

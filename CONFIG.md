@@ -9,6 +9,7 @@ Or supply the path to the file using the `-c` flag when running the application 
 ## File Format
 - File type: JSON
 - Structure: A top-level object with:
+    - `api base url`: string - the base URL of the JTL-Wawi API. The default is `"http://127.0.0.1:5883/api/eazybusiness/"`
     - `search mode`: string — selects how items are searched; must be either `"category"` or `"supplier"`.
     - `category id`: string — the selected category ID (non-empty).
     - `path to folder`: string — absolute path to the local folder containing your images (non-empty). Each image must be named as follows: `{itemSKU}-{itemImageNumber}.jpg`
@@ -24,6 +25,7 @@ Notes:
 
 ```json
 {
+  "api base url": "http://127.0.0.1:5883/api/eazybusiness/",
   "search mode": "category",
   "category id": "155",
   "path to folder": "C:\\Users\\your-username\\Pictures\\JTL-Wawi-Images",

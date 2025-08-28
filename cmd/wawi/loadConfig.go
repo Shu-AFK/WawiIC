@@ -7,9 +7,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/Shu-AFK/WawiIC/cmd/defines"
 )
 
 type configRoot struct {
+	ApiBaseURL           string `json:"api base url"`
 	SearchMode           string `json:"search mode"`
 	CategoryID           string `json:"category id"`
 	PathToFolder         string `json:"path to image folder"`
@@ -32,6 +35,7 @@ func LoadConfig(path string) error {
 		return fmt.Errorf("parse JSON: %w", err)
 	}
 
+	defines.APIBaseURL = strings.TrimSpace(root.ApiBaseURL)
 	categoryID, err = strconv.Atoi(strings.TrimSpace(root.CategoryID))
 
 	SearchMode = strings.TrimSpace(root.SearchMode)
