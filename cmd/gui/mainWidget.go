@@ -96,6 +96,8 @@ func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas, w fyne.Win
 			items, err = wawi.GetItems(query, SelectedCategoryID, 0)
 		} else if wawi.SearchMode == "supplier" {
 			items, err = wawi.GetItems(query, "", SelectedSupplierID)
+		} else if wawi.SearchMode == "none" {
+			items, err = wawi.GetItems(query, "", 0)
 		}
 
 		fyne.Do(func() {

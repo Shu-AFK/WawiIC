@@ -15,11 +15,11 @@ const (
 	ProviderWebsite = "https://www.alpa-industrievertretungen.de/"
 	XChallangeCode  = "wh5x1kgdm2koqsc31rfly3s"
 	APIKeyVarName   = "WAWIIC_APIKEY"
-	APIVersion      = "1.1"
 	OpenAiApiKeyEnv = "OPENAI_API_KEY"
-	ConfigPath      = "config/config.json"
 )
 
+var ConfigPath = "config/config.json"
+var APIVersion = "1.1"
 var APIBaseURL = "http://127.0.0.1:5883/api/eazybusiness/"
 
 var MandatoryAPIScope = []string{

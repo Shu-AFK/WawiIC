@@ -25,21 +25,23 @@ var (
 )
 
 func GetItems(query string, selectedCategoryID string, selectedSupplierID int) ([]wawi_structs.WItem, error) {
+	itemQuery := wawi_structs.QueryItemStruct{
+		SearchKeyword: query,
+		PageSize:      100,
+	}
+
 	if SearchMode == "category" {
 		if selectedCategoryID == "" || selectedCategoryID == "Kategorien" {
 			return nil, NoCategory
 		}
+
+		itemQuery.ItemCategory = selectedCategoryID
 	} else if SearchMode == "supplier" {
 		if selectedSupplierID == 0 {
 			return nil, NoSupplier
 		}
-	}
 
-	itemQuery := wawi_structs.QueryItemStruct{
-		SearchKeyword: query,
-		ItemCategory:  selectedCategoryID,
-		ItemSupplier:  strconv.Itoa(selectedSupplierID),
-		PageSize:      1000,
+		itemQuery.ItemSupplier = strconv.Itoa(selectedSupplierID)
 	}
 
 	items, err := QueryItem(itemQuery)

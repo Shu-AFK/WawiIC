@@ -26,7 +26,7 @@ func postAppRegistration() (*defines.RegistrationResponse, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-ChallengeCode", defines.XChallangeCode) // "x-" war zu kurz
+	req.Header.Set("X-ChallengeCode", defines.XChallangeCode)
 	req.Header.Set("X-AppID", defines.AppID)
 	req.Header.Set("X-AppVersion", defines.Version)
 	req.Header.Set("api-version", defines.APIVersion)
@@ -36,6 +36,31 @@ func postAppRegistration() (*defines.RegistrationResponse, error) {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		resp.Body.Close()
+		retryURL := defines.APIBaseURL + "v1/authentication"
+		retryReq, rerr := http.NewRequest("POST", retryURL, bytes.NewBuffer(jsonData))
+		if rerr != nil {
+			return nil, fmt.Errorf("failed to create retry request: %v", rerr)
+		}
+		retryReq.Header.Set("Content-Type", "application/json")
+		retryReq.Header.Set("X-ChallengeCode", defines.XChallangeCode)
+
+		resp, err = http.DefaultClient.Do(retryReq)
+		if err != nil {
+			return nil, fmt.Errorf("HTTP retry request failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusCreated && defines.APIVersion == "1.1" {
+			fmt.Println("Please change the api version in your config.json to 1.0 for future use.")
+			fmt.Println("Please change your request url to include a trailing v1/ for future use.")
+		}
+
+		defines.APIVersion = "1.0"
+		defines.APIBaseURL += "v1/"
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

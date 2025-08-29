@@ -13,6 +13,7 @@ import (
 
 type configRoot struct {
 	ApiBaseURL           string `json:"api base url"`
+	ApiVersion           string `json:"api version"`
 	SearchMode           string `json:"search mode"`
 	CategoryID           string `json:"category id"`
 	PathToFolder         string `json:"path to image folder"`
@@ -36,11 +37,19 @@ func LoadConfig(path string) error {
 	}
 
 	defines.APIBaseURL = strings.TrimSpace(root.ApiBaseURL)
+	if defines.APIBaseURL == "" {
+		return errors.New("api base url must not be empty")
+	}
 	categoryID, err = strconv.Atoi(strings.TrimSpace(root.CategoryID))
 
+	if root.ApiVersion == "" {
+		return errors.New("api version must not be empty")
+	}
+	defines.APIVersion = strings.TrimSpace(root.ApiVersion)
+
 	SearchMode = strings.TrimSpace(root.SearchMode)
-	if SearchMode != "category" && SearchMode != "supplier" {
-		return fmt.Errorf("search mode must be either 'category' or 'supplier'")
+	if SearchMode != "category" && SearchMode != "supplier" && SearchMode != "none" {
+		return fmt.Errorf("search mode must be either 'category', 'supplier' or 'none' but was '%s'", SearchMode)
 	}
 
 	PathToFolder = strings.TrimSpace(root.PathToFolder)
