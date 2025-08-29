@@ -128,6 +128,11 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 		return "", err
 	}
 
+	allImages, err := getAllItemImages(combinations)
+	if err != nil {
+		return "", err
+	}
+
 	productSEO, err := generateSEO(
 		productNames,
 		combinations[0].Item.GetItem.Description,
@@ -188,22 +193,25 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 		imageChannel <- nil
 	}
 
-	go func() {
-		propIDs, err := collectUniquePropertyValueIDs(combinations)
-		if err != nil {
-			propertyChannel <- err
-			return
-		}
-
-		for _, id := range propIDs {
-			if _, err := CreateItemProperty(strconv.Itoa(item.ID), id); err != nil {
+	// Error in older api version
+	/*
+		go func() {
+			propIDs, err := collectUniquePropertyValueIDs(combinations)
+			if err != nil {
 				propertyChannel <- err
 				return
 			}
-		}
 
-		propertyChannel <- nil
-	}()
+			for _, id := range propIDs {
+				if _, err := CreateItemProperty(strconv.Itoa(item.ID), id); err != nil {
+					propertyChannel <- err
+					return
+				}
+			}
+
+			propertyChannel <- nil
+		}() */
+	propertyChannel <- nil
 
 	go func() {
 		variationTree := BuildVariationLabelIndex(variations, labels)
@@ -234,7 +242,27 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 		return "", variationsResp.err
 	}
 
-	if err := assignChildrenToParent(item.ID, combinations, variationsResp.variationTree, variationsResp.order, variationsResp.valueIdByLabel); err != nil {
+	assignChildChannel := make(chan error, 1)
+	uploadItemImagesChannel := make(chan error, 1)
+
+	go func() {
+		assignChildChannel <- assignChildrenToParent(
+			item.ID,
+			combinations,
+			variationsResp.variationTree,
+			variationsResp.order,
+			variationsResp.valueIdByLabel,
+		)
+	}()
+
+	go func() {
+		uploadItemImagesChannel <- uploadAllItemImages(strconv.Itoa(item.ID), allImages)
+	}()
+
+	if err := <-assignChildChannel; err != nil {
+		return "", err
+	}
+	if err := <-uploadItemImagesChannel; err != nil {
 		return "", err
 	}
 
@@ -506,6 +534,49 @@ func uploadCombinedImage(imgB64 string, item wawi_structs.GetItem) error {
 
 	if err := CreateItemImage(imgStruct, strconv.Itoa(item.ID)); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func getAllItemImages(combinations []gui_structs.Combination) ([]wawi_structs.CreateImageStruct, error) {
+	images := make([]wawi_structs.CreateImageStruct, 0, len(combinations))
+
+	for _, c := range combinations {
+		for i := range 10 {
+			path := fmt.Sprintf("%s%s-%i.jpg", PathToFolder, c.Item.GetItem.SKU, i+1)
+			data, err := os.ReadFile(path)
+
+			if err != nil && i == 0 {
+				fmt.Fprintf(os.Stderr, "no image %s: %v\n", path, err)
+				return nil, fmt.Errorf("no image for item %s:  %s: %v\n", c.Item.GetItem.SKU, path, err)
+			} else if err != nil {
+				break
+			}
+
+			if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
+				return nil, fmt.Errorf("decode %s: %w", path, err)
+			}
+
+			b64 := base64.StdEncoding.EncodeToString(data)
+			img := wawi_structs.CreateImageStruct{
+				ImageData:      b64,
+				Filename:       fmt.Sprintf("%s-%i.jpg", c.Item.GetItem.SKU, i+1),
+				SalesChannelId: "1-1-1",
+			}
+
+			images = append(images, img)
+		}
+	}
+
+	return images, nil
+}
+
+func uploadAllItemImages(itemId string, images []wawi_structs.CreateImageStruct) error {
+	for _, img := range images {
+		if err := CreateItemImage(img, itemId); err != nil {
+			return err
+		}
 	}
 
 	return nil

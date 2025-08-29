@@ -522,10 +522,7 @@ func wawiCreateRequest(method string, url string, body io.Reader) (*http.Respons
 	req.Header.Set("x-appid", defines.AppID)
 	req.Header.Set("x-runas", defines.AppID)
 	req.Header.Set("api-version", defines.APIVersion)
-
-	if defines.APIVersion == "1.1" {
-		req.Header.Set("x-appversion", defines.Version)
-	}
+	req.Header.Set("x-appversion", defines.Version)
 
 	if method == "POST" || method == "PATCH" {
 		req.Header.Set("Content-Type", "application/json")

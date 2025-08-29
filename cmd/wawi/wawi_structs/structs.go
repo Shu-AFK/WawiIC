@@ -323,3 +323,16 @@ type Suppliers struct {
 	VATID              string `json:"VatID"`
 	Status             string `json:"Status"`
 }
+
+type QueryItemImage struct {
+	ItemId         int    `json:"ItemId"`
+	ImageId        int    `json:"ImageId"`
+	Filename       string `json:"Filename"`
+	ImageDataType  string `json:"ImageDataType"`
+	SalesChannelId string `json:"SalesChannelId"`
+	EbayUserName   string `json:"EbayUserName"`
+	SortNumber     int    `json:"SortNumber"`
+	Size           int    `json:"Size"`
+	Width          int    `json:"Width"`
+	Height         int    `json:"Height"`
+}

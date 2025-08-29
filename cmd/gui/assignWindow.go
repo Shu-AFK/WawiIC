@@ -182,43 +182,63 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 					return
 				}
 
-				existsAlready, err := wawi.CheckIfSKUExists(sku)
-				if err != nil {
-					dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
-					fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
-					return
-				}
-
-				if existsAlready {
-					dialog.ShowInformation("Achtung!", "Diese SKU existiert bereits.", w)
-					fmt.Println(fmt.Sprintf("Diese SKU existiert bereits: %s", sku))
-					return
-				}
-
-				spinner := widget.NewProgressBarInfinite()
-				waitDlg := dialog.NewCustomWithoutButtons(
+				// First waiting dialog while checking if the SKU already exists
+				checkSpinner := widget.NewProgressBarInfinite()
+				checkDlg := dialog.NewCustomWithoutButtons(
 					"Bitte warten",
 					container.NewVBox(
-						widget.NewLabel("Vorgang läuft…"),
-						spinner),
+						widget.NewLabel("Prüfe SKU…"),
+						checkSpinner,
+					),
 					w,
 				)
-				waitDlg.Show()
+				checkDlg.Show()
 
 				go func() {
-					SKU, err := wawi.HandleAssignDone(combinedItems, variations, labels, sku)
+					existsAlready, err := wawi.CheckIfSKUExists(sku)
 
 					fyne.Do(func() {
-						waitDlg.Hide()
+						checkDlg.Hide()
 
 						if err != nil {
 							dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
 							fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
 							return
 						}
+						if existsAlready {
+							dialog.ShowInformation("Achtung!", "Diese SKU existiert bereits.", w)
+							fmt.Println(fmt.Sprintf("Diese SKU existiert bereits: %s", sku))
+							return
+						}
 
-						FatherSKU = SKU
-						w.Close()
+						// Second waiting dialog after SKU confirmed free; proceed with assigning
+						spinner := widget.NewProgressBarInfinite()
+						waitDlg := dialog.NewCustomWithoutButtons(
+							"Bitte warten",
+							container.NewVBox(
+								widget.NewLabel("Vorgang läuft…"),
+								spinner,
+							),
+							w,
+						)
+						waitDlg.Show()
+
+						go func() {
+							SKU, err := wawi.HandleAssignDone(combinedItems, variations, labels, sku)
+
+							fyne.Do(func() {
+								waitDlg.Hide()
+
+								if err != nil {
+									dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
+									fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
+									return
+								}
+
+								FatherSKU = SKU
+								w.Close()
+							})
+						}()
 					})
 				}()
 			},

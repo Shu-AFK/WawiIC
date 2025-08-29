@@ -85,6 +85,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "failed to set environment variable: %v\n", err)
 			exit(1, *pauseFlag)
 		}
+	} else {
+		fmt.Println("Wawi API key found.")
 	}
 
 	fmt.Println("Checking for OpenAI API key...")
