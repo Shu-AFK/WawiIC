@@ -245,24 +245,27 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 	assignChildChannel := make(chan error, 1)
 	uploadItemImagesChannel := make(chan error, 1)
 
-	go func() {
-		assignChildChannel <- assignChildrenToParent(
-			item.ID,
-			combinations,
-			variationsResp.variationTree,
-			variationsResp.order,
-			variationsResp.valueIdByLabel,
-		)
-	}()
-
+	if ActivateSalesChannel {
+		go func() {
+			assignChildChannel <- assignChildrenToParent(
+				item.ID,
+				combinations,
+				variationsResp.variationTree,
+				variationsResp.order,
+				variationsResp.valueIdByLabel,
+			)
+		}()
+	} else {
+		assignChildChannel <- nil
+	}
 	go func() {
 		uploadItemImagesChannel <- uploadAllItemImages(strconv.Itoa(item.ID), allImages)
 	}()
 
-	if err := <-assignChildChannel; err != nil {
+	if err := <-uploadItemImagesChannel; err != nil {
 		return "", err
 	}
-	if err := <-uploadItemImagesChannel; err != nil {
+	if err := <-assignChildChannel; err != nil {
 		return "", err
 	}
 
@@ -454,6 +457,21 @@ func PtrIfSet[T comparable](v T) *T {
 	return &v
 }
 
+// Try reading an image as .jpg first, then .png. Returns bytes and picked extension ("jpg" or "png").
+func readImageBytesWithFallback(basePath string) ([]byte, string, error) {
+	jpgPath := basePath + ".jpg"
+	data, err := os.ReadFile(jpgPath)
+	if err == nil {
+		return data, "jpg", nil
+	}
+	pngPath := basePath + ".png"
+	dataPNG, errPNG := os.ReadFile(pngPath)
+	if errPNG == nil {
+		return dataPNG, "png", nil
+	}
+	return nil, "", fmt.Errorf("no image found: %s (%v) or %s (%v)", jpgPath, err, pngPath, errPNG)
+}
+
 func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.GetItem, newSKU string) wawi_structs.ItemCreate {
 	cheapestItemIndex := findCheapestItem(items)
 	dangerousStruct := getItemDangerous(items)
@@ -501,16 +519,15 @@ func getImagesAndBase64(combinations []gui_structs.Combination) ([]string, error
 	images := make([]string, 0, len(combinations))
 
 	for _, c := range combinations {
-		path := fmt.Sprintf("%s%s-1.jpg", PathToFolder, c.Item.GuiItem.SKU)
-
-		data, err := os.ReadFile(path)
+		base := fmt.Sprintf("%s%s-1", PathToFolder, c.Item.GuiItem.SKU)
+		data, _, err := readImageBytesWithFallback(base)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "no image %s: %v\n", path, err)
+			fmt.Fprintf(os.Stderr, "no image %s.(jpg|png): %v\n", base, err)
 			continue
 		}
 
 		if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
-			return nil, fmt.Errorf("decode %s: %w", path, err)
+			return nil, fmt.Errorf("decode %s.(jpg|png): %w", base, err)
 		}
 
 		b64 := base64.StdEncoding.EncodeToString(data)
@@ -544,24 +561,24 @@ func getAllItemImages(combinations []gui_structs.Combination) ([]wawi_structs.Cr
 
 	for _, c := range combinations {
 		for i := range 10 {
-			path := fmt.Sprintf("%s%s-%i.jpg", PathToFolder, c.Item.GetItem.SKU, i+1)
-			data, err := os.ReadFile(path)
+			base := fmt.Sprintf("%s%s-%v", PathToFolder, c.Item.GetItem.SKU, i+1)
+			data, ext, err := readImageBytesWithFallback(base)
 
 			if err != nil && i == 0 {
-				fmt.Fprintf(os.Stderr, "no image %s: %v\n", path, err)
-				return nil, fmt.Errorf("no image for item %s:  %s: %v\n", c.Item.GetItem.SKU, path, err)
+				fmt.Fprintf(os.Stderr, "no image %s.(jpg|png): %v\n", base, err)
+				return nil, fmt.Errorf("no image for item %s: %s.(jpg|png): %v", c.Item.GetItem.SKU, base, err)
 			} else if err != nil {
 				break
 			}
 
 			if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
-				return nil, fmt.Errorf("decode %s: %w", path, err)
+				return nil, fmt.Errorf("decode %s.%s: %w", base, ext, err)
 			}
 
 			b64 := base64.StdEncoding.EncodeToString(data)
 			img := wawi_structs.CreateImageStruct{
 				ImageData:      b64,
-				Filename:       fmt.Sprintf("%s-%i.jpg", c.Item.GetItem.SKU, i+1),
+				Filename:       fmt.Sprintf("%s-%v.%s", c.Item.GetItem.SKU, i+1, ext),
 				SalesChannelId: "1-1-1",
 			}
 
