@@ -202,7 +202,7 @@ func CombineWindow(w fyne.Window, app fyne.App, selected []wawi_structs.WItem) {
 	})
 
 	btnFinished := widget.NewButton("Fertig", func() {
-		if len(labels) <= len(selected) {
+		if len(labels) < len(selected) {
 			dialog.ShowInformation("Achtung!", "Nicht genug Variationen für die ausgewählten Artikel!", w)
 			return
 		}
