@@ -182,65 +182,83 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 					return
 				}
 
-				// First waiting dialog while checking if the SKU already exists
-				checkSpinner := widget.NewProgressBarInfinite()
-				checkDlg := dialog.NewCustomWithoutButtons(
-					"Bitte warten",
-					container.NewVBox(
-						widget.NewLabel("Prüfe SKU…"),
-						checkSpinner,
-					),
-					w,
-				)
-				checkDlg.Show()
+				// Common handler to proceed with assignment (no SKU existence check inside)
+				proceedAssign := func() {
+					spinner := widget.NewProgressBarInfinite()
+					waitDlg := dialog.NewCustomWithoutButtons(
+						"Bitte warten",
+						container.NewVBox(
+							widget.NewLabel("Vorgang läuft…"),
+							spinner,
+						),
+						w,
+					)
+					waitDlg.Show()
 
-				go func() {
-					existsAlready, err := wawi.CheckIfSKUExists(sku)
+					go func() {
+						SKU, err := wawi.HandleAssignDone(combinedItems, variations, labels, sku)
 
-					fyne.Do(func() {
-						checkDlg.Hide()
+						fyne.Do(func() {
+							waitDlg.Hide()
 
-						if err != nil {
-							dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
-							fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
+							if err != nil {
+								dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
+								fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
+								return
+							}
+
+							FatherSKU = SKU
+							w.Close()
+						})
+					}()
+				}
+
+				dialog.ShowConfirm(
+					"SKU prüfen?",
+					"Möchtest du prüfen, ob die SKU bereits existiert?",
+					func(shouldCheck bool) {
+						if !shouldCheck {
+							// Skip check, proceed immediately
+							proceedAssign()
 							return
 						}
-						if existsAlready {
-							dialog.ShowInformation("Achtung!", "Diese SKU existiert bereits.", w)
-							fmt.Println(fmt.Sprintf("Diese SKU existiert bereits: %s", sku))
-							return
-						}
 
-						// Second waiting dialog after SKU confirmed free; proceed with assigning
-						spinner := widget.NewProgressBarInfinite()
-						waitDlg := dialog.NewCustomWithoutButtons(
+						// User chose to check first
+						checkSpinner := widget.NewProgressBarInfinite()
+						checkDlg := dialog.NewCustomWithoutButtons(
 							"Bitte warten",
 							container.NewVBox(
-								widget.NewLabel("Vorgang läuft…"),
-								spinner,
+								widget.NewLabel("Prüfe SKU…"),
+								checkSpinner,
 							),
 							w,
 						)
-						waitDlg.Show()
+						checkDlg.Show()
 
 						go func() {
-							SKU, err := wawi.HandleAssignDone(combinedItems, variations, labels, sku)
+							existsAlready, err := wawi.CheckIfSKUExists(sku)
 
 							fyne.Do(func() {
-								waitDlg.Hide()
+								checkDlg.Hide()
 
 								if err != nil {
 									dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
 									fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
 									return
 								}
+								if existsAlready {
+									dialog.ShowInformation("Achtung!", "Diese SKU existiert bereits.", w)
+									fmt.Println(fmt.Sprintf("Diese SKU existiert bereits: %s", sku))
+									return
+								}
 
-								FatherSKU = SKU
-								w.Close()
+								// SKU is free; proceed
+								proceedAssign()
 							})
 						}()
-					})
-				}()
+					},
+					w,
+				)
 			},
 			w,
 		)
