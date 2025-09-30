@@ -4,6 +4,8 @@
   <img src="assets/banner.png" alt="WawiIC Banner" width="100%">
 </p>
 
+[🌐 Visit the website](https://shu-afk.github.io/WawiIC/) 
+
 ## Overview
 WawiIC is a **Go-based GUI application** designed as an add-on for the **JTL Wawi** system. It simplifies the process of:
 - **Querying and selecting items** from your inventory
