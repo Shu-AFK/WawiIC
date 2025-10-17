@@ -27,7 +27,7 @@ var (
 func GetItems(query string, selectedCategoryID string, selectedSupplierID int) ([]wawi_structs.WItem, error) {
 	itemQuery := wawi_structs.QueryItemStruct{
 		SearchKeyword: query,
-		PageSize:      100,
+		PageSize:      20,
 	}
 
 	if SearchMode == "category" {
@@ -120,7 +120,7 @@ func CheckIfSKUExists(sku string) (bool, error) {
 	return len(items) > 0, nil
 }
 
-func HandleAssignDone(combinations []gui_structs.Combination, variations map[string][]string, labels map[string]string, sku string) (string, error) {
+func HandleAssignDone(combinations []gui_structs.Combination, variations map[string][]string, labels map[string]string, sku string, mergeImages bool, errorOnNoImages bool) (string, error) {
 	productNames, variationLabels, oldSKUs := buildPromptInputs(combinations)
 
 	images, err := getImagesAndBase64(combinations)
@@ -179,19 +179,29 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 		descriptionChannel <- UpdateDescription(strconv.Itoa(item.ID), *productSEO)
 	}()
 
-	if len(images) > 0 {
-		go func() {
+	// image handling logic
+	go func() {
+		if len(images) == 0 {
+			if !mergeImages && errorOnNoImages {
+				imageChannel <- fmt.Errorf("no images available and merge disabled")
+				return
+			}
+			imageChannel <- nil
+			return
+		}
+
+		if mergeImages {
 			img, err := imagecomb.CombineImages(images)
 			if err != nil {
-				imageChannel <- err
+				imageChannel <- fmt.Errorf("failed to combine images: %w", err)
 				return
 			}
 
 			imageChannel <- uploadCombinedImage(img, *item)
-		}()
-	} else {
-		imageChannel <- nil
-	}
+		} else {
+			imageChannel <- nil
+		}
+	}()
 
 	// Error in older api version
 	/*
@@ -566,13 +576,14 @@ func getAllItemImages(combinations []gui_structs.Combination) ([]wawi_structs.Cr
 
 			if err != nil && i == 0 {
 				fmt.Fprintf(os.Stderr, "no image %s.(jpg|png): %v\n", base, err)
-				return nil, fmt.Errorf("no image for item %s: %s.(jpg|png): %v", c.Item.GetItem.SKU, base, err)
+				break
 			} else if err != nil {
 				break
 			}
 
 			if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
-				return nil, fmt.Errorf("decode %s.%s: %w", base, ext, err)
+				fmt.Fprintf(os.Stderr, "decode %s.%s failed: %v\n", base, ext, err)
+				continue
 			}
 
 			b64 := base64.StdEncoding.EncodeToString(data)

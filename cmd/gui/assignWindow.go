@@ -21,24 +21,34 @@ type valueCombo struct {
 }
 
 func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variations map[string][]string, labels map[string]string) {
-	selectedIndex := -1
-	selectedCombinationIndex := -1
-
-	var combinedItems []gui_structs.Combination
-	availableItems := append([]wawi_structs.WItem(nil), selected...)
-
 	w.Resize(fyne.NewSize(800, 500))
+	state := newAssignmentState(selected, variations, labels)
+	ui := buildAssignmentUI(w, state)
 
-	itemList := widget.NewList(
-		itemListLengthFn(&availableItems),
-		labelTemplate,
-		itemListUpdateFn(&availableItems),
-	)
-	itemList.OnSelected = func(id widget.ListItemID) {
-		selectedIndex = id
-	}
-	itemScroll := container.NewVScroll(itemList)
+	ui.assignBtn.OnTapped = func() { handleAssign(w, state, ui) }
+	ui.unassignBtn.OnTapped = func() { handleUnassign(w, state, ui) }
+	ui.cancelBtn.OnTapped = func() { handleCancel(w, state, ui) }
+	ui.doneBtn.OnTapped = func() { handleDone(w, state, ui) }
 
+	w.SetContent(ui.content)
+	w.Show()
+}
+
+type assignmentState struct {
+	selectedIndex            int
+	selectedComboIndex       int
+	selectedCombinationIndex int
+	availableItems           []wawi_structs.WItem
+	availableCombos          []valueCombo
+	combinedItems            []gui_structs.Combination
+	comboByID                map[string]valueCombo
+	variations               map[string][]string
+	labels                   map[string]string
+	mergeImages              bool
+	errorOnNoImages          bool
+}
+
+func newAssignmentState(selected []wawi_structs.WItem, variations map[string][]string, labels map[string]string) *assignmentState {
 	const visualRoot = ""
 	const actualRoot = "root"
 
@@ -53,255 +63,253 @@ func createAssignmentWindow(w fyne.Window, selected []wawi_structs.WItem, variat
 	}
 
 	branchIDs := variations[actualRoot]
-
 	allCombos := buildAllCombos(variations, labels, branchIDs)
-
-	availableCombos := append([]valueCombo(nil), allCombos...)
-
 	comboByID := make(map[string]valueCombo, len(allCombos))
 	for _, c := range allCombos {
-		cid := strings.Join(c.ids, "|")
-		comboByID[cid] = c
+		comboByID[strings.Join(c.ids, "|")] = c
 	}
 
-	selectedComboIndex := -1
-	variationList := widget.NewList(
-		variationListLengthFn(&availableCombos),
-		labelTemplate,
-		variationListUpdateFn(&availableCombos),
-	)
-	variationList.OnSelected = func(i widget.ListItemID) {
-		selectedComboIndex = i
+	return &assignmentState{
+		selectedIndex:            -1,
+		selectedComboIndex:       -1,
+		selectedCombinationIndex: -1,
+		availableItems:           append([]wawi_structs.WItem(nil), selected...),
+		availableCombos:          append([]valueCombo(nil), allCombos...),
+		comboByID:                comboByID,
+		variations:               variations,
+		labels:                   labels,
+		mergeImages:              false,
+		errorOnNoImages:          false,
 	}
-	variationScroll := container.NewVScroll(variationList)
+}
+
+type assignmentUI struct {
+	itemList, variationList, assignmentList    *widget.List
+	assignBtn, unassignBtn, cancelBtn, doneBtn *widget.Button
+	mergeCheck, errorCheck                     *widget.Check
+	content                                    fyne.CanvasObject
+}
+
+func buildAssignmentUI(w fyne.Window, s *assignmentState) *assignmentUI {
+	itemList := widget.NewList(
+		itemListLengthFn(&s.availableItems),
+		labelTemplate,
+		itemListUpdateFn(&s.availableItems),
+	)
+	itemList.OnSelected = func(id widget.ListItemID) { s.selectedIndex = id }
+
+	variationList := widget.NewList(
+		variationListLengthFn(&s.availableCombos),
+		labelTemplate,
+		variationListUpdateFn(&s.availableCombos),
+	)
+	variationList.OnSelected = func(i widget.ListItemID) { s.selectedComboIndex = i }
 
 	assignmentList := widget.NewList(
-		assignmentListLengthFn(&combinedItems),
+		assignmentListLengthFn(&s.combinedItems),
 		labelTemplate,
-		assignmentListUpdateFn(&combinedItems, labels),
+		assignmentListUpdateFn(&s.combinedItems, s.labels),
 	)
-	assignmentList.OnSelected = func(id widget.ListItemID) {
-		selectedCombinationIndex = id
+	assignmentList.OnSelected = func(id widget.ListItemID) { s.selectedCombinationIndex = id }
+
+	assignBtn := widget.NewButton("Zusammenfügen", nil)
+	unassignBtn := widget.NewButton("Rückgängig machen", nil)
+	cancelBtn := widget.NewButton("Abbrechen", nil)
+	doneBtn := widget.NewButton("Fertig", nil)
+
+	mergeCheck := widget.NewCheck("Bilder zusammenfügen", func(val bool) {
+		s.mergeImages = val
+	})
+	errorCheck := widget.NewCheck("Error wenn kein Bild vorhanden", func(val bool) {
+		s.errorOnNoImages = val
+	})
+
+	left := container.NewBorder(widget.NewLabel("Verfügbare Artikel"), nil, nil, nil, container.NewVScroll(itemList))
+	center := container.NewBorder(widget.NewLabel("Variationen"), nil, nil, nil, container.NewVScroll(variationList))
+	right := container.NewBorder(widget.NewLabel("Kombinationen"), nil, nil, nil, container.NewVScroll(assignmentList))
+
+	rightSplit := container.NewHSplit(center, right)
+	rightSplit.SetOffset(0.5)
+	mainSplit := container.NewHSplit(left, rightSplit)
+	mainSplit.SetOffset(0.33)
+
+	buttons := container.NewHBox(
+		assignBtn,
+		unassignBtn,
+		cancelBtn,
+		layout.NewSpacer(),
+		mergeCheck,
+		errorCheck,
+		doneBtn,
+	)
+
+	content := container.NewVSplit(mainSplit, buttons)
+	content.SetOffset(0.95)
+
+	return &assignmentUI{
+		itemList, variationList, assignmentList,
+		assignBtn, unassignBtn, cancelBtn, doneBtn,
+		mergeCheck, errorCheck,
+		content,
 	}
-	assignmentScroll := container.NewVScroll(assignmentList)
+}
 
-	assignBtn := widget.NewButton("Zusammenfügen", func() {
-		if selectedIndex < 0 || selectedComboIndex < 0 {
-			dialog.ShowInformation("Achtung!", "Bitte wähle zuerst eine Variation und einen Artikel aus.", w)
-			return
-		}
+func handleAssign(w fyne.Window, s *assignmentState, ui *assignmentUI) {
+	if s.selectedIndex < 0 || s.selectedComboIndex < 0 {
+		dialog.ShowInformation("Achtung!", "Bitte wähle zuerst eine Variation und einen Artikel aus.", w)
+		return
+	}
+	combo := s.availableCombos[s.selectedComboIndex]
+	combinedID := strings.Join(combo.ids, "|")
+	if _, ok := s.labels[combinedID]; !ok {
+		s.labels[combinedID] = combo.label
+	}
+	s.availableCombos = append(s.availableCombos[:s.selectedComboIndex], s.availableCombos[s.selectedComboIndex+1:]...)
+	ui.variationList.UnselectAll()
+	s.selectedComboIndex = -1
+	ui.variationList.Refresh()
 
-		combo := availableCombos[selectedComboIndex]
-		combinedID := strings.Join(combo.ids, "|")
-		if _, ok := labels[combinedID]; !ok {
-			labels[combinedID] = combo.label
-		}
+	item := s.availableItems[s.selectedIndex]
+	s.availableItems = append(s.availableItems[:s.selectedIndex], s.availableItems[s.selectedIndex+1:]...)
+	ui.itemList.UnselectAll()
+	s.selectedIndex = -1
+	ui.itemList.Refresh()
 
-		availableCombos = append(availableCombos[:selectedComboIndex], availableCombos[selectedComboIndex+1:]...)
-		variationList.UnselectAll()
-		selectedComboIndex = -1
-		variationList.Refresh()
-
-		item := availableItems[selectedIndex]
-		availableItems = append(availableItems[:selectedIndex], availableItems[selectedIndex+1:]...)
-		itemList.UnselectAll()
-		selectedIndex = -1
-		itemList.Refresh()
-
-		combinedItems = append(combinedItems, gui_structs.Combination{
-			Item:        item,
-			Label:       labels[combinedID],
-			VariationID: combinedID,
-			ParentID:    "",
-			ParentIndex: -1,
-		})
-
-		assignmentList.Refresh()
+	s.combinedItems = append(s.combinedItems, gui_structs.Combination{
+		Item:        item,
+		Label:       s.labels[combinedID],
+		VariationID: combinedID,
+		ParentID:    "",
+		ParentIndex: -1,
 	})
+	ui.assignmentList.Refresh()
+}
 
-	unassignBtn := widget.NewButton("Rückgängig machen", func() {
-		if selectedCombinationIndex < 0 || selectedCombinationIndex >= len(combinedItems) {
-			dialog.ShowInformation("Achtung!", "Bitte wähle zuerst eine Kombination aus, die rückgängig gemacht werden soll.", w)
-			return
+func handleUnassign(w fyne.Window, s *assignmentState, ui *assignmentUI) {
+	if s.selectedCombinationIndex < 0 || s.selectedCombinationIndex >= len(s.combinedItems) {
+		dialog.ShowInformation("Achtung!", "Bitte wähle zuerst eine Kombination aus, die rückgängig gemacht werden soll.", w)
+		return
+	}
+	c := s.combinedItems[s.selectedCombinationIndex]
+	s.combinedItems = append(s.combinedItems[:s.selectedCombinationIndex], s.combinedItems[s.selectedCombinationIndex+1:]...)
+	ui.assignmentList.UnselectAll()
+	s.selectedCombinationIndex = -1
+	ui.assignmentList.Refresh()
+	s.availableItems = append(s.availableItems, c.Item)
+	ui.itemList.Refresh()
+	if vc, ok := s.comboByID[c.VariationID]; ok {
+		insertComboByOrder(&s.availableCombos, vc)
+		ui.variationList.Refresh()
+	}
+}
+
+func handleCancel(w fyne.Window, s *assignmentState, ui *assignmentUI) {
+	for _, c := range s.combinedItems {
+		s.availableItems = append(s.availableItems, c.Item)
+		if vc, ok := s.comboByID[c.VariationID]; ok {
+			insertComboByOrder(&s.availableCombos, vc)
 		}
+	}
+	s.combinedItems = nil
+	ui.itemList.Refresh()
+	ui.assignmentList.UnselectAll()
+	ui.assignmentList.Refresh()
+	ui.variationList.Refresh()
+	w.Close()
+}
 
-		c := combinedItems[selectedCombinationIndex]
-		combinedItems = append(combinedItems[:selectedCombinationIndex], combinedItems[selectedCombinationIndex+1:]...)
-		assignmentList.UnselectAll()
-		selectedCombinationIndex = -1
-		assignmentList.Refresh()
+func handleDone(w fyne.Window, s *assignmentState, ui *assignmentUI) {
+	if len(s.availableItems) != 0 {
+		dialog.ShowInformation("Achtung!", "Bitte kombiniere zuerst alle Artikel..", w)
+		return
+	}
 
-		availableItems = append(availableItems, c.Item)
-		itemList.Refresh()
-
-		if vc, ok := comboByID[c.VariationID]; ok {
-			insertComboByOrder(&availableCombos, vc)
-			variationList.Refresh()
-		}
-	})
-
-	cancelBtn := widget.NewButton("Abbrechen", func() {
-		for _, c := range combinedItems {
-			availableItems = append(availableItems, c.Item)
-			if vc, ok := comboByID[c.VariationID]; ok {
-				insertComboByOrder(&availableCombos, vc)
+	entry := widget.NewEntry()
+	d := dialog.NewForm(
+		"SKU des Vaterartikels",
+		"Speichern",
+		"Abbrechen",
+		[]*widget.FormItem{widget.NewFormItem("SKU", entry)},
+		func(confirmed bool) {
+			if !confirmed {
+				return
 			}
-		}
-
-		combinedItems = nil
-		itemList.Refresh()
-		assignmentList.UnselectAll()
-		assignmentList.Refresh()
-		variationList.Refresh()
-
-		w.Close()
-	})
-
-	doneBtn := widget.NewButton("Fertig", func() {
-		if len(availableItems) != 0 {
-			dialog.ShowInformation("Achtung!", "Bitte kombiniere zuerst alle Artikel..", w)
-			return
-		}
-
-		entry := widget.NewEntry()
-		d := dialog.NewForm(
-			"SKU des Vaterartikels",
-			"Speichern",
-			"Abbrechen",
-			[]*widget.FormItem{
-				widget.NewFormItem("SKU", entry),
-			},
-			func(confirmed bool) {
-				if !confirmed {
-					return
-				}
-
-				sku := strings.TrimSpace(entry.Text)
-				if sku == "" {
-					dialog.ShowInformation("Ungültige Eingabe", "Bitte eine SKU eingeben.", w)
-					return
-				}
-
-				// Common handler to proceed with assignment (no SKU existence check inside)
-				proceedAssign := func() {
-					spinner := widget.NewProgressBarInfinite()
-					waitDlg := dialog.NewCustomWithoutButtons(
+			sku := strings.TrimSpace(entry.Text)
+			if sku == "" {
+				dialog.ShowInformation("Ungültige Eingabe", "Bitte eine SKU eingeben.", w)
+				return
+			}
+			proceedAssign := func() {
+				spinner := widget.NewProgressBarInfinite()
+				waitDlg := dialog.NewCustomWithoutButtons(
+					"Bitte warten",
+					container.NewVBox(widget.NewLabel("Vorgang läuft…"), spinner),
+					w,
+				)
+				waitDlg.Show()
+				go func() {
+					SKU, err := wawi.HandleAssignDone(
+						s.combinedItems,
+						s.variations,
+						s.labels,
+						sku,
+						s.mergeImages,
+						s.errorOnNoImages,
+					)
+					fyne.Do(func() {
+						waitDlg.Hide()
+						if err != nil {
+							dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
+							fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
+							return
+						}
+						FatherSKU = SKU
+						w.Close()
+					})
+				}()
+			}
+			dialog.ShowConfirm(
+				"SKU prüfen?",
+				"Möchtest du prüfen, ob die SKU bereits existiert?",
+				func(shouldCheck bool) {
+					if !shouldCheck {
+						proceedAssign()
+						return
+					}
+					checkSpinner := widget.NewProgressBarInfinite()
+					checkDlg := dialog.NewCustomWithoutButtons(
 						"Bitte warten",
-						container.NewVBox(
-							widget.NewLabel("Vorgang läuft…"),
-							spinner,
-						),
+						container.NewVBox(widget.NewLabel("Prüfe SKU…"), checkSpinner),
 						w,
 					)
-					waitDlg.Show()
-
+					checkDlg.Show()
 					go func() {
-						SKU, err := wawi.HandleAssignDone(combinedItems, variations, labels, sku)
-
+						existsAlready, err := wawi.CheckIfSKUExists(sku)
 						fyne.Do(func() {
-							waitDlg.Hide()
-
+							checkDlg.Hide()
 							if err != nil {
 								dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
 								fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
 								return
 							}
-
-							FatherSKU = SKU
-							w.Close()
+							if existsAlready {
+								dialog.ShowInformation("Achtung!", "Diese SKU existiert bereits.", w)
+								fmt.Println(fmt.Sprintf("Diese SKU existiert bereits: %s", sku))
+								return
+							}
+							proceedAssign()
 						})
 					}()
-				}
-
-				dialog.ShowConfirm(
-					"SKU prüfen?",
-					"Möchtest du prüfen, ob die SKU bereits existiert?",
-					func(shouldCheck bool) {
-						if !shouldCheck {
-							// Skip check, proceed immediately
-							proceedAssign()
-							return
-						}
-
-						// User chose to check first
-						checkSpinner := widget.NewProgressBarInfinite()
-						checkDlg := dialog.NewCustomWithoutButtons(
-							"Bitte warten",
-							container.NewVBox(
-								widget.NewLabel("Prüfe SKU…"),
-								checkSpinner,
-							),
-							w,
-						)
-						checkDlg.Show()
-
-						go func() {
-							existsAlready, err := wawi.CheckIfSKUExists(sku)
-
-							fyne.Do(func() {
-								checkDlg.Hide()
-
-								if err != nil {
-									dialog.ShowError(fmt.Errorf("etwas lief schief: %w", err), w)
-									fmt.Println(fmt.Sprintf("etwas lief schief: %s", err))
-									return
-								}
-								if existsAlready {
-									dialog.ShowInformation("Achtung!", "Diese SKU existiert bereits.", w)
-									fmt.Println(fmt.Sprintf("Diese SKU existiert bereits: %s", sku))
-									return
-								}
-
-								// SKU is free; proceed
-								proceedAssign()
-							})
-						}()
-					},
-					w,
-				)
-			},
-			w,
-		)
-		d.Show()
-	})
-
-	leftPanel := container.NewBorder(
-		widget.NewLabel("Verfügbare Artikel"),
-		nil,
-		nil,
-		nil,
-		itemScroll,
+				},
+				w,
+			)
+		},
+		w,
 	)
-
-	rightPanel := container.NewBorder(
-		widget.NewLabel("Kombinationen"),
-		nil,
-		nil,
-		nil,
-		assignmentScroll,
-	)
-
-	centerPanel := container.NewBorder(
-		widget.NewLabel("Variationen"),
-		nil,
-		nil,
-		nil,
-		variationScroll,
-	)
-
-	right := container.NewHSplit(centerPanel, rightPanel)
-	right.SetOffset(0.5)
-
-	up := container.NewHSplit(leftPanel, right)
-	up.SetOffset(0.33)
-
-	content := container.NewVSplit(up, container.NewHBox(assignBtn, unassignBtn, cancelBtn, layout.NewSpacer(), doneBtn))
-	content.SetOffset(0.95)
-
-	w.SetContent(content)
-	w.Show()
+	d.Show()
 }
 
+// list helper functions unchanged
 func itemListLengthFn(items *[]wawi_structs.WItem) func() int {
 	return func() int { return len(*items) }
 }
@@ -318,6 +326,7 @@ func itemListUpdateFn(items *[]wawi_structs.WItem) func(id widget.ListItemID, ob
 func variationListLengthFn(combos *[]valueCombo) func() int {
 	return func() int { return len(*combos) }
 }
+
 func variationListUpdateFn(combos *[]valueCombo) func(id widget.ListItemID, obj fyne.CanvasObject) {
 	return func(i widget.ListItemID, o fyne.CanvasObject) {
 		o.(*widget.Label).SetText((*combos)[i].label)
@@ -327,6 +336,7 @@ func variationListUpdateFn(combos *[]valueCombo) func(id widget.ListItemID, obj 
 func assignmentListLengthFn(items *[]gui_structs.Combination) func() int {
 	return func() int { return len(*items) }
 }
+
 func assignmentListUpdateFn(items *[]gui_structs.Combination, labels map[string]string) func(id widget.ListItemID, obj fyne.CanvasObject) {
 	return func(id widget.ListItemID, obj fyne.CanvasObject) {
 		c := (*items)[id]
