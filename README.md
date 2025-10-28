@@ -33,7 +33,7 @@ Perfect for managing product variants efficiently!
    ```sh  
    git clone https://github.com/Shu-AFK/WawiIC.git  
    cd WawiIC  
-   go mod init github.com/yourusername/WawiIC 
+   go mod init github.com/Shu-AFK/WawiIC 
    go mod tidy
    
    go build -o WawiIC.exe
