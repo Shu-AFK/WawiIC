@@ -40,8 +40,8 @@ jobs:
 
       - name: Prepare release folder
         run: |
-          mkdir -p release
-          mv WawiIC.exe release/config
+          mkdir -p release/config
+          mv WawiIC.exe release
           cp -r config.json release/config/
 
       - name: Zip release
