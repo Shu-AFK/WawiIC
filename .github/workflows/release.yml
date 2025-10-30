@@ -55,6 +55,7 @@ jobs:
         run: |
           mkdir -p release/config
           mv WawiIC.exe release
+          mv docs release
           cp -r config.json release/config/
 
       - name: Zip release
