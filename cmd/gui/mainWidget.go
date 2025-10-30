@@ -54,16 +54,23 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 	mergeButton.Importance = widget.LowImportance
 	mergeButton.Resize(fyne.NewSize(80, 40))
 
-	clearButton = widget.NewButton("Auswahl leeren", func() {
+	clearButton := widget.NewButton("Auswahl leeren", func() {
 		Selected = Selected[:0]
 		FatherSKU = ""
 
-		for _, obj := rows.Objects {
+		for _, obj := range rows.Objects {
 			if rowContainer, ok := obj.(*fyne.Container); ok {
 				for _, child := range rowContainer.Objects {
-					if chk, ok := child.(*widget.Check); ok && chk.Enabled() {
-						chk.SetChecked(false)
+					chk, ok := child.(*widget.Check)
+					if !ok {
+						continue
 					}
+
+					if dis, ok := child.(fyne.Disableable); ok && dis.Disabled() {
+						continue
+					}
+
+					chk.SetChecked(false)
 				}
 			}
 		}

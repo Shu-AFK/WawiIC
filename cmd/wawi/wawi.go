@@ -123,6 +123,17 @@ func CheckIfSKUExists(sku string) (bool, error) {
 func HandleAssignDone(combinations []gui_structs.Combination, variations map[string][]string, labels map[string]string, sku string, mergeImages bool, errorOnNoImages bool) (string, error) {
 	productNames, variationLabels, oldSKUs := buildPromptInputs(combinations)
 
+	if errorOnNoImages {
+		missing := detectMissingPrimaryImages(combinations)
+		if len(missing) > 0 {
+			lines := make([]string, 0, len(missing))
+			for _, item := range missing {
+				lines = append(lines, fmt.Sprintf("- %s (SKU: %s)", item.Name, item.SKU))
+			}
+			return "", fmt.Errorf("fehlende Bilder für folgende Artikel:\n%s", strings.Join(lines, "\n"))
+		}
+	}
+
 	images, err := getImagesAndBase64(combinations)
 	if err != nil {
 		return "", err
@@ -608,4 +619,30 @@ func uploadAllItemImages(itemId string, images []wawi_structs.CreateImageStruct)
 	}
 
 	return nil
+}
+
+type missingImageInfo struct {
+	Name string
+	SKU  string
+}
+
+func detectMissingPrimaryImages(combinations []gui_structs.Combination) []missingImageInfo {
+	missing := make([]missingImageInfo, 0)
+	for _, combo := range combinations {
+		base := fmt.Sprintf("%s%s-1", PathToFolder, combo.Item.GuiItem.SKU)
+		if !imageExists(base+".jpg") && !imageExists(base+".png") {
+			missing = append(missing, missingImageInfo{
+				Name: combo.Item.GuiItem.Name,
+				SKU:  combo.Item.GuiItem.SKU,
+			})
+		}
+	}
+	return missing
+}
+
+func imageExists(path string) bool {
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	return false
 }

@@ -78,8 +78,8 @@ func newAssignmentState(selected []wawi_structs.WItem, variations map[string][]s
 		comboByID:                comboByID,
 		variations:               variations,
 		labels:                   labels,
-		mergeImages:              false,
-		errorOnNoImages:          false,
+		mergeImages:              true,
+		errorOnNoImages:          true,
 	}
 }
 
@@ -120,9 +120,11 @@ func buildAssignmentUI(w fyne.Window, s *assignmentState) *assignmentUI {
 	mergeCheck := widget.NewCheck("Bilder zusammenfügen", func(val bool) {
 		s.mergeImages = val
 	})
+	mergeCheck.SetChecked(true)
 	errorCheck := widget.NewCheck("Error wenn kein Bild vorhanden", func(val bool) {
 		s.errorOnNoImages = val
 	})
+	errorCheck.SetChecked(true)
 
 	left := container.NewBorder(widget.NewLabel("Verfügbare Artikel"), nil, nil, nil, container.NewVScroll(itemList))
 	center := container.NewBorder(widget.NewLabel("Variationen"), nil, nil, nil, container.NewVScroll(variationList))
