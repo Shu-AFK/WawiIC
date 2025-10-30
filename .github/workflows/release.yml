@@ -1,0 +1,55 @@
+name: Release Windows Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Install build dependencies (MinGW and GUI libs)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-mingw-w64-x86-64 \
+            xorg-dev \
+            libgl1-mesa-dev
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build Windows executable
+        env:
+          CGO_ENABLED: 1
+          GOOS: windows
+          GOARCH: amd64
+          CC: x86_64-w64-mingw32-gcc
+        run: |
+          go build -o WawiIC.exe -ldflags "-H windowsgui" .
+
+      - name: Prepare release folder
+        run: |
+          mkdir -p release
+          mv WawiIC.exe release/config
+          cp -r config.json release/config/
+
+      - name: Zip release
+        run: zip -r WawiIC.zip release/
+
+      - name: Upload release to GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          files: WawiIC.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
