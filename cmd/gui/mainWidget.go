@@ -42,6 +42,7 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 		combineW := app.NewWindow("Zusammenfügen")
 		combineW.SetOnClosed(func() {
 			Selected = Selected[:0]
+			uncheckAllRows(rows)
 
 			if FatherSKU != "" {
 				dialog.ShowInformation("Erfolg", fmt.Sprintf("Der Vather Artikel wurde erfolgreich erstellt. SKU %s\nBitte überprüfe alle informationen nochmal in JTL Wawi.", FatherSKU), w)
@@ -64,24 +65,7 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 		Selected = Selected[:0]
 		FatherSKU = ""
 
-		for _, obj := range rows.Objects {
-			if rowContainer, ok := obj.(*fyne.Container); ok {
-				for _, child := range rowContainer.Objects {
-					chk, ok := child.(*widget.Check)
-					if !ok {
-						continue
-					}
-
-					if dis, ok := child.(fyne.Disableable); ok && dis.Disabled() {
-						continue
-					}
-
-					chk.SetChecked(false)
-				}
-			}
-		}
-
-		rows.Refresh()
+		uncheckAllRows(rows)
 	})
 
 	buttonContainer := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), clearButton, mergeButton)
@@ -184,6 +168,34 @@ func onSearch(query string, rows *fyne.Container, canvas fyne.Canvas, w fyne.Win
 			rows.Refresh()
 		})
 	}()
+}
+
+func uncheckAllRows(rows *fyne.Container) {
+	if rows == nil {
+		return
+	}
+
+	for _, obj := range rows.Objects {
+		rowContainer, ok := obj.(*fyne.Container)
+		if !ok {
+			continue
+		}
+
+		for _, child := range rowContainer.Objects {
+			chk, ok := child.(*widget.Check)
+			if !ok {
+				continue
+			}
+
+			if dis, ok := child.(fyne.Disableable); ok && dis.Disabled() {
+				continue
+			}
+
+			chk.SetChecked(false)
+		}
+	}
+
+	rows.Refresh()
 }
 
 func truncatedLabelWithTooltip(text string, maxLen int, canvas fyne.Canvas) fyne.CanvasObject {
