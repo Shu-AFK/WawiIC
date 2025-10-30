@@ -54,7 +54,24 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 	mergeButton.Importance = widget.LowImportance
 	mergeButton.Resize(fyne.NewSize(80, 40))
 
-	buttonContainer := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), mergeButton)
+	clearButton = widget.NewButton("Auswahl leeren", func() {
+		Selected = Selected[:0]
+		FatherSKU = ""
+
+		for _, obj := rows.Objects {
+			if rowContainer, ok := obj.(*fyne.Container); ok {
+				for _, child := range rowContainer.Objects {
+					if chk, ok := child.(*widget.Check); ok && chk.Enabled() {
+						chk.SetChecked(false)
+					}
+				}
+			}
+		}
+
+		rows.Refresh()
+	})
+
+	buttonContainer := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), clearButton, mergeButton)
 
 	searchbar.OnSubmitted = func(query string) {
 		prevSearch = query
