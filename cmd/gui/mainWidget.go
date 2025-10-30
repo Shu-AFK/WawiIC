@@ -27,7 +27,7 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 	searchbar := widget.NewEntry()
 	searchbar.SetPlaceHolder("Artikel...")
 
-	autoSearchCheck := widget.NewCheck("nach Zusammenfügen erneut suchen", nil)
+	autoSearchCheck := widget.NewCheck("Auto-Suche", nil)
 	autoSearchCheck.SetChecked(true)
 
 	rows := container.NewVBox()
@@ -91,11 +91,10 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 		onSearch(query, rows, canvas, w)
 	}
 
+	topControls := container.NewBorder(nil, nil, nil, autoSearchCheck, searchbar)
+
 	content := container.NewBorder(
-		container.NewVBox(
-			searchbar,
-			container.NewHBox(autoSearchCheck, layout.NewSpacer()),
-		),
+		topControls,
 		buttonContainer,
 		nil,
 		nil,
