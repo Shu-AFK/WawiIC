@@ -2,3 +2,4 @@
 build
 config/config.json
 go.sum
+*.exe
