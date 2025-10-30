@@ -27,6 +27,9 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 	searchbar := widget.NewEntry()
 	searchbar.SetPlaceHolder("Artikel...")
 
+	autoSearchCheck := widget.NewCheck("nach Zusammenfügen erneut suchen", nil)
+	autoSearchCheck.SetChecked(true)
+
 	rows := container.NewVBox()
 	scroll := container.NewVScroll(rows)
 
@@ -45,7 +48,10 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 			}
 			FatherSKU = ""
 
-			onSearch(prevSearch, rows, canvas, w)
+			if autoSearchCheck.Checked {
+				searchbar.SetText(prevSearch)
+				onSearch(prevSearch, rows, canvas, w)
+			}
 		})
 
 		CombineWindow(combineW, app, Selected)
@@ -86,7 +92,10 @@ func createMainWidget(canvas fyne.Canvas, app fyne.App, w fyne.Window) fyne.Canv
 	}
 
 	content := container.NewBorder(
-		searchbar,
+		container.NewVBox(
+			searchbar,
+			container.NewHBox(autoSearchCheck, layout.NewSpacer()),
+		),
 		buttonContainer,
 		nil,
 		nil,
