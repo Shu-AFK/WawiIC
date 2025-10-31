@@ -99,23 +99,31 @@ func childNameFromVariationID(variationID string, labels map[string]string) (str
 	return name, ok
 }
 
-func addCategoryToParent(categories []wawi_structs.Category) []wawi_structs.Category {
-	ret := make([]wawi_structs.Category, 0, len(categories)+1)
-	checkCategoryAlreadyAdded := false
+func collectUniqueCategories(items []wawi_structs.GetItem) []wawi_structs.Category {
+	seen := make(map[int]wawi_structs.Category)
+	order := make([]int, 0)
 
-	for _, c := range categories {
-		if c.CategoryID == categoryID {
-			checkCategoryAlreadyAdded = true
+	for _, item := range items {
+		for _, category := range item.Categories {
+			if _, alreadyAdded := seen[category.CategoryID]; alreadyAdded {
+				continue
+			}
+
+			seen[category.CategoryID] = category
+			order = append(order, category.CategoryID)
 		}
-		ret = append(ret, c)
 	}
 
-	if !checkCategoryAlreadyAdded {
-		ret = append(ret, wawi_structs.Category{
-			CategoryID: categoryID,
-		})
+	categories := make([]wawi_structs.Category, 0, len(order)+1)
+	for _, id := range order {
+		categories = append(categories, seen[id])
 	}
-	return ret
+
+	if _, exists := seen[categoryID]; !exists {
+		categories = append(categories, wawi_structs.Category{CategoryID: categoryID})
+	}
+
+	return categories
 }
 
 func uniqueStrings(in []string) []string {
