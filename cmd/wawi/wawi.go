@@ -505,7 +505,7 @@ func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.Get
 		ManufacturerID:      PtrIfSet(items[cheapestItemIndex].ManufacturerID),
 		ResponsiblePersonID: PtrIfSet(items[cheapestItemIndex].ResponsiblePersonID),
 		IsActive:            true,
-		Categories:          addCategoryToParent(items[cheapestItemIndex].Categories),
+		Categories:          collectUniqueCategories(items),
 		Name:                seo.CombinedArticleName,
 		Description:         seo.Description,
 		ShortDescription:    seo.ShortDescription,
