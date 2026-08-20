@@ -38,9 +38,9 @@
 ### Config
 
 - Default path: `config/config.json`  
-- Alternatively: provide a custom path using the `-c` flag:
+- Alternatively: provide a custom path using the `-config` flag:
   ```sh
-  WawiIC.exe -c "D:\path\to\my\config.json"
+  WawiIC.exe -config "D:\path\to\my\config.json"
   ```
 
 ---
@@ -85,7 +85,7 @@
 > You can start the application by double-clicking it, or if you want to specify a custom config path, run:
 
 ```sh
-WawiIC.exe -c "D:\\MyConfigs\\custom.json"
+WawiIC.exe -config "D:\\MyConfigs\\custom.json"
 ```
 
 ---
@@ -104,3 +104,22 @@ WawiIC.exe -c "D:\\MyConfigs\\custom.json"
   After merging items, always check item descriptions, images, and SEO description.  
   AI can make mistakes, so manual review is recommended.
 - **Multiple searches**: When searching for items, selecting one or more of them, and then performing another search, the previously selected items remain selected.
+---
+
+### Repairing sales channel prices on older parent items
+
+Parent items created before version 1.0.2 only received the standard price, not the
+sales channel prices. To copy those prices onto them afterwards:
+
+```sh
+WawiIC.exe -backfill-prices          # test run, writes nothing
+WawiIC.exe -backfill-prices -apply   # writes the prices
+```
+
+It only touches parent items created by this tool, takes the prices from the same
+child item the parent's standard price came from, and can be run again safely.
+By default it searches the category from your config; `-backfill-category 0`
+searches every item, which takes considerably longer.
+
+> Requires the app to be registered again, because the sales channel price
+> permissions were added in 1.0.2.

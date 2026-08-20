@@ -38,28 +38,10 @@ func postAppRegistration() (*defines.RegistrationResponse, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		resp.Body.Close()
-		retryURL := defines.APIBaseURL + "v1/authentication"
-		retryReq, rerr := http.NewRequest("POST", retryURL, bytes.NewBuffer(jsonData))
-		if rerr != nil {
-			return nil, fmt.Errorf("failed to create retry request: %v", rerr)
-		}
-		retryReq.Header.Set("Content-Type", "application/json")
-		retryReq.Header.Set("X-ChallengeCode", defines.XChallangeCode)
-
-		resp, err = http.DefaultClient.Do(retryReq)
-		if err != nil {
-			return nil, fmt.Errorf("HTTP retry request failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == http.StatusCreated && defines.APIVersion == "1.1" {
-			fmt.Println("Please change the api version in your config.json to 1.0 for future use.")
-			fmt.Println("Please change your request url to include a trailing v1/ for future use.")
-		}
-
-		defines.APIVersion = "1.0"
-		defines.APIBaseURL += "v1/"
+		return nil, fmt.Errorf(
+			"registration endpoint not found at %sauthentication - check that the API server is running and that 'api base url' points at the unversioned base URL",
+			defines.APIBaseURL,
+		)
 	}
 
 	body, err := io.ReadAll(resp.Body)

@@ -35,6 +35,9 @@ func main() {
 	defaultPath := defines.ConfigPath
 	cfgFlag := flag.String("config", defaultPath, "config file path")
 	pauseFlag := flag.Bool("pause", false, "wait for Enter before exit")
+	backfillFlag := flag.Bool("backfill-prices", false, "copy sales channel prices onto parent items created before this was supported")
+	applyFlag := flag.Bool("apply", false, "with -backfill-prices: write the changes instead of only reporting them")
+	backfillCatFlag := flag.Int("backfill-category", -1, "with -backfill-prices: category to search (default: the configured category, 0 searches every item)")
 	flag.Parse()
 
 	cfgPath := *cfgFlag
@@ -89,6 +92,18 @@ func main() {
 		fmt.Println("Wawi API key found.")
 	}
 
+	if *backfillFlag {
+		category := *backfillCatFlag
+		if category < 0 {
+			category = wawi.ConfiguredCategoryID()
+		}
+		if err := runBackfill(category, *applyFlag); err != nil {
+			fmt.Fprintf(os.Stderr, "backfill failed: %v\n", err)
+			exit(1, *pauseFlag)
+		}
+		exit(0, *pauseFlag)
+	}
+
 	fmt.Println("Checking for OpenAI API key...")
 	err = openai.CheckForAPIKey()
 	if err != nil {
@@ -99,4 +114,51 @@ func main() {
 
 	gui.RunGUI()
 	pauseIfNeeded(*pauseFlag)
+}
+
+func runBackfill(categoryID int, apply bool) error {
+	if apply {
+		fmt.Println("Backfill wird ausgeführt, Änderungen werden geschrieben.")
+	} else {
+		fmt.Println("Backfill als Testlauf, es wird nichts geschrieben. Mit -apply ausführen.")
+	}
+	if categoryID == 0 {
+		fmt.Println("Warnung: ohne Kategorie wird der gesamte Artikelstamm durchsucht, das kann sehr lange dauern.")
+	}
+
+	results, err := wawi.BackfillSalesChannelPrices(wawi.BackfillOptions{
+		CategoryID: categoryID,
+		Apply:      apply,
+	}, func(msg string) {
+		fmt.Println(msg)
+	})
+	if err != nil {
+		return err
+	}
+
+	var updated, skipped, failed int
+	for _, res := range results {
+		switch {
+		case res.Err != nil:
+			failed++
+			fmt.Fprintf(os.Stderr, "  FEHLER %s: %v\n", res.ParentSKU, res.Err)
+		case res.Skipped != "":
+			skipped++
+			fmt.Printf("  ÜBERSPRUNGEN %s: %s\n", res.ParentSKU, res.Skipped)
+		default:
+			updated++
+			verb := "würde übernehmen"
+			if apply {
+				verb = "übernommen"
+			}
+			fmt.Printf("  %s: %d Preise von %s %s\n", res.ParentSKU, res.Prices, res.SourceSKU, verb)
+		}
+	}
+
+	fmt.Printf("\nFertig: %d aktualisiert, %d übersprungen, %d fehlgeschlagen.\n", updated, skipped, failed)
+	if failed > 0 {
+		return fmt.Errorf("%d Artikel konnten nicht aktualisiert werden", failed)
+	}
+
+	return nil
 }

@@ -40,6 +40,12 @@ func LoadConfig(path string) error {
 	if defines.APIBaseURL == "" {
 		return errors.New("api base url must not be empty")
 	}
+	// The version belongs in the api-version header, not in the path. A base URL
+	// left over from an older Wawi would otherwise pin every request to v1.
+	if trimmed := strings.TrimSuffix(defines.APIBaseURL, "v1/"); trimmed != defines.APIBaseURL {
+		defines.APIBaseURL = trimmed
+		fmt.Printf("Note: removed the trailing 'v1/' from the api base url, now using %s\n", defines.APIBaseURL)
+	}
 	categoryID, err = strconv.Atoi(strings.TrimSpace(root.CategoryID))
 
 	if root.ApiVersion == "" {
@@ -61,4 +67,11 @@ func LoadConfig(path string) error {
 	ActivateSalesChannel = root.ActivateSalesChannel
 
 	return nil
+}
+
+// ConfiguredCategoryID is the category every parent item created by this tool is
+// filed under, which lets the backfill narrow its search instead of walking the
+// whole catalogue.
+func ConfiguredCategoryID() int {
+	return categoryID
 }

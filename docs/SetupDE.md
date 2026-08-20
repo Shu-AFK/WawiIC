@@ -21,17 +21,17 @@
 ### Config
 
 - Standardpfad: `config/config.json`  
-- Alternativ: Pfad per `-c` Flag beim Starten des Programms mitgeben  
+- Alternativ: Pfad per `-config` Flag beim Starten des Programms mitgeben  
   Beispiel:
   ```sh
-  WawiIC.exe -c "D:\pfad\zu\meiner\config.json"
+  WawiIC.exe -config "D:\pfad\zu\meiner\config.json"
   ```
 
 ---
 #### Aufbau
 - Typ: JSON
 - Inhalt:
-	- `api base url`: string - Basis-URL der JTL-Wawi API. Standard: `"http://127.0.0.1:5883/api/eazybusiness/"` Die URL wird gezeigt, wenn der JTL Wawi API server gestartet wird. Bei älteren Versionen kann es sein, dass die URL `http://127.0.0.1:5883/api/eazybusiness/v1/` ist.
+	- `api base url`: string - Basis-URL der JTL-Wawi API. Standard: `"http://127.0.0.1:5883/api/eazybusiness/"` Die URL wird gezeigt, wenn der JTL Wawi API server gestartet wird. Die URL darf kein `v1/` am Ende enthalten, die Version wird über `api version` gesetzt.
 	- `api version`: string - Die angeforderte Version der JTL-Wawi API. Standard: `"1.1"`. Ältere Wawi-Versionen benötigen `"1.0"`.
 	- `search mode`: string - steuert wie Artikel ausgewählt werden. Erlaubt: `"category"`, `"supplier"` oder `"none"`, jedoch bringt die suche mit Kategorie oder Hersteller mit der nicht, jedoch kann es sein, dass bei neueren Versionen von JTL-Wawi die suche danach funktioniert.
 	- `category id`: string - die id der Kategorie, welche zu dem Vaterartikel zum prüfen hinzugefügt werden soll.
@@ -62,7 +62,7 @@
 > Man kann die Anwendung entweder durch einen Doppelclick starten oder, wenn man eine alternativen Pfad zur config angeben will dann durch 
 
 ```sh
-WawiIC.exe -c "D:\\MeineConfigs\\custom.json"
+WawiIC.exe -config "D:\\MeineConfigs\\custom.json"
 ```
 
 ---
@@ -74,3 +74,23 @@ WawiIC.exe -c "D:\\MeineConfigs\\custom.json"
 - **Programm/API server hängt sich auf**: Falls das passiert, am besten WawiIC und den API server neu starten.
 - **Vaterartikel überprüfen**: Nach dem zusammenfügen von Artikeln sollte die Artikelbeschreibung, die Bilder, die SEO Beschreibung überprüfen, da KI Fehler machen kann.
 - **Mehrere Suchen**: Wenn man nach Artikeln sucht, einen oder mehrere auswählt und danach nochmal sucht, sind die vorherigen Artikel immer noch ausgewählt
+---
+
+### Verkaufskanalpreise bei älteren Vaterartikeln nachtragen
+
+Vaterartikel, die vor Version 1.0.2 erstellt wurden, haben nur den Standardpreis
+bekommen, nicht die Verkaufskanalpreise. Um diese nachzutragen:
+
+```sh
+WawiIC.exe -backfill-prices          # Testlauf, schreibt nichts
+WawiIC.exe -backfill-prices -apply   # schreibt die Preise
+```
+
+Es werden nur Vaterartikel angefasst, die mit diesem Tool erstellt wurden. Die
+Preise kommen von dem Kindartikel, von dem auch der Standardpreis des Vaterartikels
+stammt. Der Lauf kann gefahrlos wiederholt werden. Standardmäßig wird die Kategorie
+aus der Config durchsucht, mit `-backfill-category 0` der gesamte Artikelstamm,
+was deutlich länger dauert.
+
+> Die App muss erneut registriert werden, da die Berechtigungen für
+> Verkaufskanalpreise erst in 1.0.2 dazugekommen sind.

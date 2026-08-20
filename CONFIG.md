@@ -4,7 +4,7 @@ This document describes the required structure and location for the configuratio
 
 ## File Location
 Place the configuration file at: `config/config.json`
-Or supply the path to the file using the `-c` flag when running the application from the command line.
+Or supply the path to the file using the `-config` flag when running the application from the command line.
 
 ## File Format
 - File type: JSON

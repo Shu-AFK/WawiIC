@@ -42,3 +42,10 @@ Perfect for managing product variants efficiently!
 2. Configure your config according to [CONFIG.md](CONFIG.md) and place it in a folder called "config" in the same directory as the exe, or specify the path to the config file using the argument "-config {path to config.json}". 
 
 3. Run the exe
+
+## Repairing older parent items
+Parent items created before 1.0.2 only received the standard price. To copy the sales channel prices onto them:
+```sh
+WawiIC.exe -backfill-prices          # test run, writes nothing
+WawiIC.exe -backfill-prices -apply   # writes the prices
+```

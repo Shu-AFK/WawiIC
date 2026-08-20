@@ -3,6 +3,7 @@ package wawi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -45,26 +46,51 @@ func QuerySalesChannels() ([]wawi_structs.SalesChannel, error) {
 
 func QueryItem(itemStruct wawi_structs.QueryItemStruct) ([]wawi_structs.GetItem, error) {
 	var items []wawi_structs.GetItem
+
+	err := QueryItemsPaged(itemStruct, func(page []wawi_structs.GetItem, _ int) error {
+		items = append(items, page...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
+}
+
+// ErrStopPaging stops QueryItemsPaged early when returned from its callback.
+var ErrStopPaging = errors.New("stop paging")
+
+// QueryItemsPaged hands each page to onPage instead of collecting every item, so
+// callers working against large catalogues do not hold the whole result in memory.
+// onPage receives the page and the total number of items the query matches, and
+// may return ErrStopPaging to stop without an error.
+func QueryItemsPaged(itemStruct wawi_structs.QueryItemStruct, onPage func([]wawi_structs.GetItem, int) error) error {
 	pageNumber := 1
 
 	for {
 		resp, err := queryItemReq(itemStruct, pageNumber)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		var respJSON wawi_structs.ResponseItemReq
 		if err = json.Unmarshal(body, &respJSON); err != nil {
-			return nil, err
+			return err
 		}
 
-		items = append(items, respJSON.Items...)
+		if err := onPage(respJSON.Items, respJSON.TotalItems); err != nil {
+			if errors.Is(err, ErrStopPaging) {
+				return nil
+			}
+			return err
+		}
 
 		if !respJSON.HasNextPage {
 			break
@@ -72,7 +98,7 @@ func QueryItem(itemStruct wawi_structs.QueryItemStruct) ([]wawi_structs.GetItem,
 		pageNumber = respJSON.NextPageNumber
 	}
 
-	return items, nil
+	return nil
 }
 
 func CreateParentItem(item wawi_structs.ItemCreate) (*wawi_structs.GetItem, error) {
@@ -477,11 +503,16 @@ func queryItemReq(itemStruct wawi_structs.QueryItemStruct, pageNumber int) (*htt
 	if itemStruct.SearchKeyword != "" {
 		params.Set("searchKeyWord", itemStruct.SearchKeyword)
 	}
+	// The legacy names are what older Wawi builds expect; the documented ones are
+	// what 1.1 expects. Unknown query parameters are ignored, so sending both keeps
+	// the filter working on either version instead of silently returning everything.
 	if itemStruct.ItemSupplier != "" {
 		params.Set("kHersteller", itemStruct.ItemSupplier)
+		params.Set("manufacturerId", itemStruct.ItemSupplier)
 	}
 	if itemStruct.ItemCategory != "" {
 		params.Set("kKategorie", itemStruct.ItemCategory)
+		params.Set("categoryId", itemStruct.ItemCategory)
 	}
 	if itemStruct.ItemID != "" {
 		params.Set("id", itemStruct.ItemID)
