@@ -35,6 +35,8 @@ var MandatoryAPIScope = []string{
 	"item.createitemvariationvalue",
 	"item.updateitemdescription",
 	"item.createitemdescription",
+	"item.queryitemsaleschannelprice",
+	"item.updateitemsaleschannelprice",
 }
 
 type AppData struct {

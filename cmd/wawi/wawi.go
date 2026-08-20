@@ -155,6 +155,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 	}
 
 	items := collectItemsFromCombinations(combinations)
+	cheapestItem := items[findCheapestItem(items)]
 	parentItem := createParentStruct(productSEO, items, sku)
 
 	item, err := CreateParentItem(parentItem)
@@ -265,6 +266,12 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 
 	assignChildChannel := make(chan error, 1)
 	uploadItemImagesChannel := make(chan error, 1)
+	salesChannelPriceChannel := make(chan error, 1)
+
+	// Runs after the sales channels are active, otherwise the prices have nothing to attach to.
+	go func() {
+		salesChannelPriceChannel <- copySalesChannelPrices(cheapestItem.ID, item.ID)
+	}()
 
 	if ActivateSalesChannel {
 		go func() {
@@ -287,6 +294,9 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 		return "", err
 	}
 	if err := <-assignChildChannel; err != nil {
+		return "", err
+	}
+	if err := <-salesChannelPriceChannel; err != nil {
 		return "", err
 	}
 
@@ -515,6 +525,7 @@ func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.Get
 		ItemPriceData: &wawi_structs.ItemPriceData{
 			SalesPriceNet:        items[cheapestItemIndex].ItemPriceData.SalesPriceNet,
 			SuggestedRetailPrice: items[cheapestItemIndex].ItemPriceData.SuggestedRetailPrice,
+			PurchasePriceNet:     items[cheapestItemIndex].ItemPriceData.PurchasePriceNet,
 			EbayPrice:            items[cheapestItemIndex].ItemPriceData.EbayPrice,
 			AmazonPrice:          items[cheapestItemIndex].ItemPriceData.AmazonPrice,
 		},
@@ -645,4 +656,22 @@ func imageExists(path string) bool {
 		return true
 	}
 	return false
+}
+
+// copySalesChannelPrices transfers every sales channel price of the source item
+// (customer group and scale price included) onto the newly created parent item.
+func copySalesChannelPrices(sourceItemID int, targetItemID int) error {
+	prices, err := QueryItemSalesChannelPrices(strconv.Itoa(sourceItemID))
+	if err != nil {
+		return err
+	}
+
+	target := strconv.Itoa(targetItemID)
+	for _, price := range prices {
+		if err := UpdateItemSalesChannelPrice(target, price); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

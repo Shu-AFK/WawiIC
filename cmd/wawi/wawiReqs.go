@@ -536,3 +536,76 @@ func wawiCreateRequest(method string, url string, body io.Reader) (*http.Respons
 
 	return resp, nil
 }
+
+func QueryItemSalesChannelPrices(itemID string) ([]wawi_structs.ItemSalesChannelPrice, error) {
+	reqUrl := defines.APIBaseURL + "items/" + itemID + "/salesChannelPrices"
+	resp, err := wawiCreateRequest("GET", reqUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// An item without any sales channel prices reports 404 instead of an empty list.
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to query item sales channel prices: %v (%v)", resp.StatusCode, string(body))
+	}
+
+	var prices []wawi_structs.ItemSalesChannelPrice
+	if err := json.Unmarshal(body, &prices); err != nil {
+		return nil, err
+	}
+
+	return prices, nil
+}
+
+func UpdateItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChannelPrice) error {
+	// NetPrice and ReduceStandardPriceByPercent are mutually exclusive, so only one may be sent.
+	var updateBody wawi_structs.UpdateSalesChannelPrice
+	switch {
+	case price.ReduceStandardPriceByPercent != nil && *price.ReduceStandardPriceByPercent != 0:
+		updateBody.ReduceStandardPriceByPercent = price.ReduceStandardPriceByPercent
+	case price.NetPrice != nil:
+		updateBody.NetPrice = price.NetPrice
+	default:
+		return nil
+	}
+
+	reqUrl := fmt.Sprintf("%sitems/%s/salesChannelPrices/%s/%d/%d",
+		defines.APIBaseURL,
+		itemID,
+		url.PathEscape(price.SalesChannelId),
+		price.CustomerGroupId,
+		price.FromQuantity,
+	)
+
+	reqBody, err := json.Marshal(updateBody)
+	if err != nil {
+		return err
+	}
+
+	resp, err := wawiCreateRequest("PATCH", reqUrl, bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		errorBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("failed to update sales channel price %s/%d/%d: %v (%v)",
+			price.SalesChannelId, price.CustomerGroupId, price.FromQuantity, resp.StatusCode, string(errorBody))
+	}
+
+	return nil
+}

@@ -21,9 +21,16 @@ func getItemDangerous(items []wawi_structs.GetItem) *wawi_structs.DangerousGoods
 
 func findCheapestItem(items []wawi_structs.GetItem) int {
 	cheapestItem := 0
+	var cheapestPrice *float64
+
 	for i, item := range items {
-		if *item.ItemPriceData.SalesPriceNet < *items[cheapestItem].ItemPriceData.SalesPriceNet {
+		price := item.ItemPriceData.SalesPriceNet
+		if price == nil {
+			continue
+		}
+		if cheapestPrice == nil || *price < *cheapestPrice {
 			cheapestItem = i
+			cheapestPrice = price
 		}
 	}
 

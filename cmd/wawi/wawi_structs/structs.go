@@ -336,3 +336,17 @@ type QueryItemImage struct {
 	Width          int    `json:"Width"`
 	Height         int    `json:"Height"`
 }
+
+type ItemSalesChannelPrice struct {
+	ItemId                       int      `json:"ItemId"`
+	SalesChannelId               string   `json:"SalesChannelId"`
+	CustomerGroupId              int      `json:"CustomerGroupId"`
+	FromQuantity                 int      `json:"FromQuantity"`
+	NetPrice                     *float64 `json:"NetPrice,omitempty"`
+	ReduceStandardPriceByPercent *float64 `json:"ReduceStandardPriceByPercent,omitempty"`
+}
+
+type UpdateSalesChannelPrice struct {
+	NetPrice                     *float64 `json:"NetPrice,omitempty"`
+	ReduceStandardPriceByPercent *float64 `json:"ReduceStandardPriceByPercent,omitempty"`
+}
