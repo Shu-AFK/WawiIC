@@ -117,9 +117,10 @@ type Identifiers struct {
 }
 
 type Component struct {
-	ItemID     int `json:"ItemId"`
-	Quantity   int `json:"Quantity"`
-	SortNumber int `json:"SortNumber"`
+	ItemID int `json:"ItemId"`
+	// Quantity is a decimal in the API, not a whole number.
+	Quantity   float64 `json:"Quantity"`
+	SortNumber int     `json:"SortNumber"`
 }
 
 type ItemPriceData struct {

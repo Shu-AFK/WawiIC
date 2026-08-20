@@ -80,12 +80,12 @@ func QueryItemsPaged(itemStruct wawi_structs.QueryItemStruct, onPage func([]wawi
 			return err
 		}
 
-		var respJSON wawi_structs.ResponseItemReq
+		var respJSON rawItemPage
 		if err = json.Unmarshal(body, &respJSON); err != nil {
 			return err
 		}
 
-		if err := onPage(respJSON.Items, respJSON.TotalItems); err != nil {
+		if err := onPage(decodeItems(respJSON.Items), respJSON.TotalItems); err != nil {
 			if errors.Is(err, ErrStopPaging) {
 				return nil
 			}
@@ -639,4 +639,37 @@ func UpdateItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChan
 	}
 
 	return nil
+}
+
+// rawItemPage defers decoding the items so that one malformed article cannot
+// abort a walk over the whole catalogue.
+type rawItemPage struct {
+	TotalItems     int               `json:"TotalItems"`
+	Items          []json.RawMessage `json:"Items"`
+	HasNextPage    bool              `json:"HasNextPage"`
+	NextPageNumber int               `json:"NextPageNumber"`
+}
+
+// decodeItems decodes each item on its own. An item the model cannot represent is
+// reported and skipped rather than failing the request, so a single unexpected
+// field does not cost a long-running scan everything it has already done.
+func decodeItems(raw []json.RawMessage) []wawi_structs.GetItem {
+	items := make([]wawi_structs.GetItem, 0, len(raw))
+
+	for _, entry := range raw {
+		var item wawi_structs.GetItem
+		if err := json.Unmarshal(entry, &item); err != nil {
+			var ident struct {
+				ID  int    `json:"Id"`
+				SKU string `json:"SKU"`
+			}
+			_ = json.Unmarshal(entry, &ident)
+			fmt.Fprintf(os.Stderr, "skipping item %d (%s): %v\n", ident.ID, ident.SKU, err)
+			continue
+		}
+
+		items = append(items, item)
+	}
+
+	return items
 }
