@@ -673,3 +673,35 @@ func decodeItems(raw []json.RawMessage) []wawi_structs.GetItem {
 
 	return items
 }
+
+// GetItemByID fetches one item directly instead of searching for it. Returns
+// false when no item with that id exists.
+func GetItemByID(itemID int) (*wawi_structs.GetItem, bool, error) {
+	reqUrl := defines.APIBaseURL + "items/" + strconv.Itoa(itemID)
+
+	resp, err := wawiCreateRequest("GET", reqUrl, nil)
+	if err != nil {
+		return nil, false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, false, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, false, fmt.Errorf("failed to get item %d: %v (%v)", itemID, resp.StatusCode, string(body))
+	}
+
+	var item wawi_structs.GetItem
+	if err := json.Unmarshal(body, &item); err != nil {
+		return nil, false, err
+	}
+
+	return &item, true, nil
+}

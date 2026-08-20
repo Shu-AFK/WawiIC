@@ -31,13 +31,69 @@ func exit(code int, pause bool) {
 	os.Exit(code)
 }
 
+func usage() {
+	out := flag.CommandLine.Output()
+
+	fmt.Fprintf(out, "WawiIC %s - %s\n\n", defines.Version, defines.Description)
+	fmt.Fprint(out, `Aufruf:
+  WawiIC.exe [-config <datei>]                 Programm mit Oberfläche starten
+  WawiIC.exe -backfill-prices [optionen]       Verkaufskanalpreise nachtragen
+
+Verkaufskanalpreise nachtragen
+------------------------------
+Vaterartikel, die vor Version 1.0.2 erstellt wurden, haben nur den Standardpreis
+bekommen, nicht die Preise der einzelnen Verkaufskanäle. Der Backfill trägt diese
+nach: zu jedem Vaterartikel werden die Kindartikel geladen und die Preise von dem
+Kind übernommen, von dem auch der Standardpreis des Vaterartikels stammt.
+
+Ohne -apply wird nichts geschrieben, der Lauf zeigt nur, was er tun würde. Ein
+Lauf kann gefahrlos wiederholt werden, die Preise werden absolut gesetzt.
+
+Welche Artikel bearbeitet werden, eine der drei Varianten:
+
+  -backfill-csv <datei>   JTL-Ameise Export. Gelesen wird die Spalte kArtikel
+                          (oder Interne ID, Artikel-ID, ItemId, Id). Die Spalte
+                          muss nicht die erste sein. Trennzeichen (;  ,  Tab  |)
+                          und Kodierung (UTF-16, UTF-8, ANSI) werden erkannt.
+                          Der Dateiname ist beliebig.
+
+  -backfill-ids <datei>   Textdatei mit einer internen Artikel-ID pro Zeile.
+                          Leerzeilen und Zeilen mit # werden übersprungen.
+
+  ohne beides             Die Kategorie aus der config wird durchsucht. Nur
+                          Artikel mit der Anmerkung "Mit API erstellt" werden
+                          angefasst. Bei großen Artikelstämmen deutlich langsamer
+                          als eine Liste.
+
+Beispiele:
+  WawiIC.exe -backfill-prices -backfill-csv export.csv
+  WawiIC.exe -backfill-prices -backfill-csv export.csv -apply
+  WawiIC.exe -backfill-prices -backfill-ids ids.txt -apply
+  WawiIC.exe -backfill-prices -backfill-category 0
+  WawiIC.exe -config "D:\configs\custom.json"
+
+Voraussetzung:
+  Die App muss in JTL-Wawi registriert sein. Die Berechtigungen für
+  Verkaufskanalpreise sind in 1.0.2 dazugekommen. Registrierungen aus älteren
+  Versionen müssen einmalig erneuert werden: App-Autorisierung in Wawi
+  entfernen, Umgebungsvariable WAWIIC_APIKEY löschen, neues Fenster öffnen,
+  Programm starten.
+
+Optionen:
+`)
+	flag.PrintDefaults()
+}
+
 func main() {
+	flag.Usage = usage
 	defaultPath := defines.ConfigPath
-	cfgFlag := flag.String("config", defaultPath, "config file path")
-	pauseFlag := flag.Bool("pause", false, "wait for Enter before exit")
-	backfillFlag := flag.Bool("backfill-prices", false, "copy sales channel prices onto parent items created before this was supported")
-	applyFlag := flag.Bool("apply", false, "with -backfill-prices: write the changes instead of only reporting them")
-	backfillCatFlag := flag.Int("backfill-category", -1, "with -backfill-prices: category to search (default: the configured category, 0 searches every item)")
+	cfgFlag := flag.String("config", defaultPath, "Pfad zur config.json")
+	pauseFlag := flag.Bool("pause", false, "am Ende auf Enter warten, bevor das Fenster schließt")
+	backfillFlag := flag.Bool("backfill-prices", false, "Verkaufskanalpreise auf bestehende Vaterartikel nachtragen")
+	applyFlag := flag.Bool("apply", false, "zusammen mit -backfill-prices: Änderungen wirklich schreiben (sonst nur Testlauf)")
+	backfillCatFlag := flag.Int("backfill-category", -1, "zusammen mit -backfill-prices: zu durchsuchende Kategorie (Standard: die aus der config, 0 = alle Artikel)")
+	backfillIDsFlag := flag.String("backfill-ids", "", "zusammen mit -backfill-prices: Datei mit einer internen Artikel-ID pro Zeile")
+	backfillCSVFlag := flag.String("backfill-csv", "", "zusammen mit -backfill-prices: JTL-Ameise Export, die internen IDs daraus werden bearbeitet")
 	flag.Parse()
 
 	cfgPath := *cfgFlag
@@ -64,6 +120,37 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
 		exit(1, *pauseFlag)
+	}
+
+	// Read the lists before anything touches the network, so a bad file surfaces
+	// immediately instead of after the registration round trip.
+	var itemIDs []int
+	if *backfillCSVFlag != "" {
+		data, err := os.ReadFile(*backfillCSVFlag)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", *backfillCSVFlag, err)
+			exit(2, *pauseFlag)
+		}
+		itemIDs, err = wawi.ParseAmeiseCSV(data)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", *backfillCSVFlag, err)
+			exit(2, *pauseFlag)
+		}
+		fmt.Printf("%d Artikel-IDs aus %s gelesen.\n", len(itemIDs), *backfillCSVFlag)
+	}
+
+	if *backfillIDsFlag != "" {
+		data, err := os.ReadFile(*backfillIDsFlag)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", *backfillIDsFlag, err)
+			exit(2, *pauseFlag)
+		}
+		itemIDs, err = wawi.ParseItemIDs(string(data))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", *backfillIDsFlag, err)
+			exit(2, *pauseFlag)
+		}
+		fmt.Printf("%d Artikel-IDs aus %s gelesen.\n", len(itemIDs), *backfillIDsFlag)
 	}
 
 	fmt.Println("Checking for Wawi API key...")
@@ -97,7 +184,8 @@ func main() {
 		if category < 0 {
 			category = wawi.ConfiguredCategoryID()
 		}
-		if err := runBackfill(category, *applyFlag); err != nil {
+
+		if err := runBackfill(itemIDs, category, *applyFlag); err != nil {
 			fmt.Fprintf(os.Stderr, "backfill failed: %v\n", err)
 			exit(1, *pauseFlag)
 		}
@@ -116,17 +204,18 @@ func main() {
 	pauseIfNeeded(*pauseFlag)
 }
 
-func runBackfill(categoryID int, apply bool) error {
+func runBackfill(itemIDs []int, categoryID int, apply bool) error {
 	if apply {
 		fmt.Println("Backfill wird ausgeführt, Änderungen werden geschrieben.")
 	} else {
 		fmt.Println("Backfill als Testlauf, es wird nichts geschrieben. Mit -apply ausführen.")
 	}
-	if categoryID == 0 {
+	if len(itemIDs) == 0 && categoryID == 0 {
 		fmt.Println("Warnung: ohne Kategorie wird der gesamte Artikelstamm durchsucht, das kann sehr lange dauern.")
 	}
 
 	results, err := wawi.BackfillSalesChannelPrices(wawi.BackfillOptions{
+		ItemIDs:    itemIDs,
 		CategoryID: categoryID,
 		Apply:      apply,
 	}, func(msg string) {

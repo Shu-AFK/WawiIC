@@ -7,6 +7,7 @@ require (
 	github.com/bas24/googletranslatefree v0.0.0-20231117033553-f5859fe54d30
 	github.com/openai/openai-go/v2 v2.0.2
 	golang.org/x/image v0.24.0
+	golang.org/x/text v0.22.0
 )
 
 require (
@@ -43,6 +44,5 @@ require (
 	github.com/yuin/goldmark v1.7.8 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

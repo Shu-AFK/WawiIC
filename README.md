@@ -46,6 +46,8 @@ Perfect for managing product variants efficiently!
 ## Repairing older parent items
 Parent items created before 1.0.2 only received the standard price. To copy the sales channel prices onto them:
 ```sh
-WawiIC.exe -backfill-prices          # test run, writes nothing
-WawiIC.exe -backfill-prices -apply   # writes the prices
+WawiIC.exe -backfill-prices                          # test run, writes nothing
+WawiIC.exe -backfill-csv export.csv -backfill-prices # from a JTL-Ameise export
+WawiIC.exe -backfill-csv export.csv -backfill-prices -apply
 ```
+Run `WawiIC.exe -h` for the full description.

@@ -3,6 +3,7 @@ package wawi
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
@@ -20,6 +21,9 @@ type BackfillResult struct {
 }
 
 type BackfillOptions struct {
+	// ItemIDs restricts the run to these parent items. When set, nothing is
+	// searched at all and CategoryID is ignored.
+	ItemIDs []int
 	// CategoryID limits the search to one category. Zero walks every item, which
 	// on a large catalogue means paging through the entire stock.
 	CategoryID int
@@ -33,6 +37,11 @@ type BackfillOptions struct {
 func BackfillSalesChannelPrices(opts BackfillOptions, progress func(string)) ([]BackfillResult, error) {
 	if progress == nil {
 		progress = func(string) {}
+	}
+
+	if len(opts.ItemIDs) > 0 {
+		progress(fmt.Sprintf("%d vorgegebene Artikel-IDs werden bearbeitet.", len(opts.ItemIDs)))
+		return backfillByID(opts.ItemIDs, opts.Apply, progress), nil
 	}
 
 	query := wawi_structs.QueryItemStruct{PageSize: 100}
@@ -163,20 +172,15 @@ func fetchItemsByID(ids []int) ([]wawi_structs.GetItem, error) {
 	items := make([]wawi_structs.GetItem, 0, len(ids))
 
 	for _, id := range ids {
-		found, err := QueryItem(wawi_structs.QueryItemStruct{
-			ItemID:   strconv.Itoa(id),
-			PageSize: 5,
-		})
+		item, found, err := GetItemByID(id)
 		if err != nil {
 			return nil, err
 		}
-
-		for _, item := range found {
-			if item.ID == id {
-				items = append(items, item)
-				break
-			}
+		if !found {
+			continue
 		}
+
+		items = append(items, *item)
 	}
 
 	return items, nil
@@ -217,4 +221,90 @@ func countMatches(query wawi_structs.QueryItemStruct) (int, error) {
 	}
 
 	return count, nil
+}
+
+// backfillByID works through an explicit list of parent items. Every item is
+// fetched directly by its internal id, so nothing is searched at all - neither
+// the catalogue size nor the category filter matters here.
+func backfillByID(ids []int, apply bool, progress func(string)) []BackfillResult {
+	results := make([]BackfillResult, 0, len(ids))
+
+	for i, id := range ids {
+		prefix := fmt.Sprintf("[%d/%d]", i+1, len(ids))
+
+		parent, found, err := GetItemByID(id)
+		if err != nil {
+			results = append(results, BackfillResult{ParentID: id, Err: err})
+			progress(fmt.Sprintf("%s ID %d: Fehler", prefix, id))
+			continue
+		}
+		if !found {
+			results = append(results, BackfillResult{ParentID: id, Skipped: "Artikel nicht gefunden"})
+			progress(fmt.Sprintf("%s ID %d: nicht gefunden", prefix, id))
+			continue
+		}
+
+		if len(parent.ChildItems) == 0 {
+			results = append(results, BackfillResult{
+				ParentID:  id,
+				ParentSKU: parent.SKU,
+				Skipped:   "kein Vaterartikel (keine Kindartikel)",
+			})
+			progress(fmt.Sprintf("%s %s: kein Vaterartikel", prefix, parent.SKU))
+			continue
+		}
+
+		res := backfillParent(*parent, apply)
+		results = append(results, res)
+		progress(prefix + " " + strings.TrimPrefix(formatBackfillProgress(res, 0), "[0] "))
+
+		// An explicit list overrides the annotation check, but a parent this tool
+		// did not create is worth pointing out before prices are written to it.
+		if parent.Annotation != ParentAnnotation {
+			progress(fmt.Sprintf("  Hinweis: %s wurde nicht mit diesem Tool erstellt.", parent.SKU))
+		}
+	}
+
+	return results
+}
+
+// ParseItemIDs reads one item ID per line. Blank lines and lines starting with #
+// are ignored, and only the first column is read so a CSV export can be passed
+// straight through.
+func ParseItemIDs(data string) ([]int, error) {
+	ids := make([]int, 0)
+	seen := make(map[int]struct{})
+
+	for i, line := range strings.Split(data, "\n") {
+		field := strings.TrimSpace(line)
+		field = strings.TrimPrefix(field, "\ufeff")
+		if field == "" || strings.HasPrefix(field, "#") {
+			continue
+		}
+
+		if cut := strings.IndexAny(field, ",;\t"); cut >= 0 {
+			field = strings.TrimSpace(field[:cut])
+		}
+		field = strings.Trim(field, "\"'")
+
+		id, err := strconv.Atoi(field)
+		if err != nil {
+			return nil, fmt.Errorf("line %d: %q is not an item ID", i+1, field)
+		}
+		if id <= 0 {
+			return nil, fmt.Errorf("line %d: %d is not a valid item ID", i+1, id)
+		}
+
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no item IDs found")
+	}
+
+	return ids, nil
 }

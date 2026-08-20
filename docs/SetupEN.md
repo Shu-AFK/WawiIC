@@ -116,6 +116,16 @@ WawiIC.exe -backfill-prices          # test run, writes nothing
 WawiIC.exe -backfill-prices -apply   # writes the prices
 ```
 
+Faster, and recommended: export the parent items from JTL-Ameise with the
+`kArtikel` column and hand the file over, then nothing has to be searched at all.
+
+```sh
+WawiIC.exe -backfill-csv export.csv -backfill-prices
+WawiIC.exe -backfill-csv export.csv -backfill-prices -apply
+```
+
+`WawiIC.exe -h` explains every option.
+
 It only touches parent items created by this tool, takes the prices from the same
 child item the parent's standard price came from, and can be run again safely.
 By default it searches the category from your config; `-backfill-category 0`

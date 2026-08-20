@@ -86,6 +86,16 @@ WawiIC.exe -backfill-prices          # Testlauf, schreibt nichts
 WawiIC.exe -backfill-prices -apply   # schreibt die Preise
 ```
 
+Schneller und empfohlen: die Vaterartikel per JTL-Ameise mit der Spalte
+`kArtikel` exportieren und die Datei übergeben, dann muss nichts gesucht werden.
+
+```sh
+WawiIC.exe -backfill-csv export.csv -backfill-prices
+WawiIC.exe -backfill-csv export.csv -backfill-prices -apply
+```
+
+`WawiIC.exe -h` erklärt alle Optionen.
+
 Es werden nur Vaterartikel angefasst, die mit diesem Tool erstellt wurden. Die
 Preise kommen von dem Kindartikel, von dem auch der Standardpreis des Vaterartikels
 stammt. Der Lauf kann gefahrlos wiederholt werden. Standardmäßig wird die Kategorie
