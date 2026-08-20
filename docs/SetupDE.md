@@ -32,9 +32,10 @@
 - Typ: JSON
 - Inhalt:
 	- `api base url`: string - Basis-URL der JTL-Wawi API. Standard: `"http://127.0.0.1:5883/api/eazybusiness/"` Die URL wird gezeigt, wenn der JTL Wawi API server gestartet wird. Bei älteren Versionen kann es sein, dass die URL `http://127.0.0.1:5883/api/eazybusiness/v1/` ist.
+	- `api version`: string - Die angeforderte Version der JTL-Wawi API. Standard: `"1.1"`. Ältere Wawi-Versionen benötigen `"1.0"`.
 	- `search mode`: string - steuert wie Artikel ausgewählt werden. Erlaubt: `"category"`, `"supplier"` oder `"none"`, jedoch bringt die suche mit Kategorie oder Hersteller mit der nicht, jedoch kann es sein, dass bei neueren Versionen von JTL-Wawi die suche danach funktioniert.
 	- `category id`: string - die id der Kategorie, welche zu dem Vaterartikel zum prüfen hinzugefügt werden soll.
-	- `path to folder`: der Pfad zu dem Ordern mit den Bildern.
+	- `path to image folder`: der Pfad zu dem Ordern mit den Bildern.
 	- `activate sales channel` bool - wenn `true`, wird der Vaterartikel direkt auf allen sales channeln aktiviert, wird benötigt für die automatische Zuordnung von Kinderartikeln zu den angegeben Variationen.
 
 **Wichtig:**
@@ -47,9 +48,10 @@
 ```json
 {
   "api base url": "http://127.0.0.1:5883/api/eazybusiness/",
+  "api version": "1.1",
   "search mode": "category",
   "category id": "155",
-  "path to folder": "C:\\Users\\your-username\\Pictures\\JTL-Wawi-Images",
+  "path to image folder": "C:\\Users\\your-username\\Pictures\\JTL-Wawi-Images",
   "activate sales channel": true
 }
 ```

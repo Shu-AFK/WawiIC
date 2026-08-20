@@ -49,12 +49,13 @@
 - Type: JSON  
 - Contains:
 	- `api base url`: string — base URL of the JTL-Wawi API. Default: `"http://127.0.0.1:5883/api/eazybusiness/"`.  
+	- `api version`: string — the API version to request. Default: `"1.1"`. Older Wawi versions require `"1.0"`.
       When the API server starts, it prints the exact URL.  
       Older versions may use: `"http://127.0.0.1:5883/api/eazybusiness/v1/"`.
 	- `search mode`: string — controls how items are selected. Allowed values: `"category"`, `"supplier"`, `"none"`.  
 	  However, category or supplier search currently may not work depending on the JTL-Wawi version.
 	- `category id`: string — the category ID that will be assigned to the parent item.
-	- `path to folder`: string — the path to the folder containing the images.
+	- `path to image folder`: string — the path to the folder containing the images.
 	- `activate sales channel`: bool — if `true`, the parent item is automatically activated in all sales channels.  
       This is required for automatic assignment of child items to the selected variations.
 
@@ -70,9 +71,10 @@
 ```json
 {
   "api base url": "http://127.0.0.1:5883/api/eazybusiness/",
+  "api version": "1.1",
   "search mode": "category",
   "category id": "155",
-  "path to folder": "C:\\Users\\your-username\\Pictures\\JTL-Wawi-Images",
+  "path to image folder": "C:\\Users\\your-username\\Pictures\\JTL-Wawi-Images",
   "activate sales channel": true
 }
 ```

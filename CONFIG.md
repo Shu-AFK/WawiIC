@@ -10,13 +10,14 @@ Or supply the path to the file using the `-c` flag when running the application 
 - File type: JSON
 - Structure: A top-level object with:
     - `api base url`: string - the base URL of the JTL-Wawi API. The default is `"http://127.0.0.1:5883/api/eazybusiness/"`
+    - `api version`: string - the version of the JTL-Wawi API to request (non-empty). The default is `"1.1"`. Older Wawi versions require `"1.0"`.
     - `search mode`: string — selects how items are searched; must be either `"category"`, `"supplier"` or `none`.
     - `category id`: string — the selected category ID (non-empty).
-    - `path to folder`: string — absolute path to the local folder containing your images (non-empty). Each image must be named as follows: `{itemSKU}-{itemImageNumber}.jpg`
+    - `path to image folder`: string — absolute path to the local folder containing your images (non-empty). Each image must be named as follows: `{itemSKU}-{itemImageNumber}.jpg`
     - `activate sales channel`: bool - if `true`, the application will enable all sales channels on the parent item automatically.
 
 Notes:
-- Keys are case-sensitive and must match exactly, including spaces (e.g., `search mode`, `category id`, `path to folder`, `activate sales channel`).
+- Keys are case-sensitive and must match exactly, including spaces (e.g., `api base url`, `api version`, `search mode`, `category id`, `path to image folder`, `activate sales channel`).
 - JSON does not allow comments or trailing commas.
 - Use UTF-8 encoding.
 
@@ -26,9 +27,10 @@ Notes:
 ```json
 {
   "api base url": "http://127.0.0.1:5883/api/eazybusiness/",
+  "api version": "1.1",
   "search mode": "category",
   "category id": "155",
-  "path to folder": "C:\\Users\\your-username\\Pictures\\JTL-Wawi-Images",
+  "path to image folder": "C:\\Users\\your-username\\Pictures\\JTL-Wawi-Images",
   "activate sales channel": true
 }
 ```

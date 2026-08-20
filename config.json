@@ -1,7 +1,8 @@
 {
   "api base url": "http://127.0.0.1:5883/api/eazybusiness/",
+  "api version": "1.1",
   "search mode": "category",
   "category id": "155",
-  "path to folder": "C:\\Users\\Public\\Pictures\\WawiImages",
+  "path to image folder": "C:\\Users\\Public\\Pictures\\WawiImages",
   "activate sales channel": true
 }
