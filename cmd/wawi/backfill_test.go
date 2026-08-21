@@ -268,3 +268,14 @@ func TestRetargetChannels(t *testing.T) {
 		}
 	}
 }
+
+// A price written to 2-2-2 comes back as 1-1-3, so the channel id must not be
+// part of the comparison - otherwise every successful write looks like a failure.
+func TestFormatStoredValues(t *testing.T) {
+	if got := formatStoredValues(nil); got != "nichts" {
+		t.Errorf("formatStoredValues(nil) = %q, want \"nichts\"", got)
+	}
+	if got := formatStoredValues([]float64{11.94688, 18.84}); got != "11.94688, 18.84" {
+		t.Errorf("formatStoredValues() = %q", got)
+	}
+}

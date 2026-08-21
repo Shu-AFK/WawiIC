@@ -536,49 +536,69 @@ func ChannelPriceSupport() (map[string]bool, error) {
 	return channelPriceSupport, channelPriceSupportErr
 }
 
-// verifySalesChannelPrices reads the item back and reports every slot whose
-// stored value differs from what was just written.
+// verifySalesChannelPrices reads the item back and reports every price that did
+// not arrive. The channel id cannot be part of the comparison: a price written
+// to 2-2-2 is reported as 1-1-3 on the way back, because the read endpoint uses
+// a different id space than the write endpoint. Customer group, quantity tier
+// and the value itself are the only parts that survive the round trip.
 func verifySalesChannelPrices(itemID int, written []BackfillPrice) ([]string, error) {
 	stored, err := QueryItemSalesChannelPrices(strconv.Itoa(itemID))
 	if err != nil {
 		return nil, err
 	}
 
-	byKey := make(map[salesChannelPriceKey]wawi_structs.ItemSalesChannelPrice, len(stored))
+	type slot struct {
+		CustomerGroupID int
+		FromQuantity    int
+	}
+
+	values := make(map[slot][]float64)
 	for _, price := range stored {
-		byKey[salesChannelPriceKey{
-			SalesChannelID:  price.SalesChannelId,
-			CustomerGroupID: price.CustomerGroupId,
-			FromQuantity:    price.FromQuantity,
-		}] = price
+		if price.NetPrice == nil {
+			continue
+		}
+		key := slot{price.CustomerGroupId, price.FromQuantity}
+		values[key] = append(values[key], *price.NetPrice)
 	}
 
 	var mismatches []string
 	for _, detail := range written {
 		want := detail.Price
-		key := salesChannelPriceKey{
-			SalesChannelID:  want.SalesChannelId,
-			CustomerGroupID: want.CustomerGroupId,
-			FromQuantity:    want.FromQuantity,
-		}
-
-		got, ok := byKey[key]
-		if !ok {
-			mismatches = append(mismatches, fmt.Sprintf(
-				"Kanal %s, Gruppe %d, ab %d: Zeile fehlt danach immer noch",
-				key.SalesChannelID, key.CustomerGroupID, key.FromQuantity))
+		if want.NetPrice == nil {
 			continue
 		}
 
-		if want.NetPrice != nil && (got.NetPrice == nil || *got.NetPrice != *want.NetPrice) {
+		key := slot{want.CustomerGroupId, want.FromQuantity}
+		found := false
+		for _, value := range values[key] {
+			if value == *want.NetPrice {
+				found = true
+				break
+			}
+		}
+
+		if !found {
 			mismatches = append(mismatches, fmt.Sprintf(
-				"Kanal %s, Gruppe %d, ab %d: geschrieben %g, gespeichert %s",
-				key.SalesChannelID, key.CustomerGroupID, key.FromQuantity,
-				*want.NetPrice, formatOptionalFloat(got.NetPrice)))
+				"Gruppe %d, ab %d: geschrieben %g, am Artikel steht %s",
+				key.CustomerGroupID, key.FromQuantity, *want.NetPrice,
+				formatStoredValues(values[key])))
 		}
 	}
 
 	return mismatches, nil
+}
+
+func formatStoredValues(values []float64) string {
+	if len(values) == 0 {
+		return "nichts"
+	}
+
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		parts = append(parts, fmt.Sprintf("%g", value))
+	}
+
+	return strings.Join(parts, ", ")
 }
 
 func formatOptionalFloat(value *float64) string {
