@@ -479,9 +479,22 @@ func printItemPrices(label string, item wawi_structs.GetItem) {
 		return
 	}
 
-	fmt.Printf("  %-12s %-7s %-7s %-12s %s\n", "Kanal", "Gruppe", "abMenge", "Netto", "Rabatt%")
+	// The position is what -price-channels maps onto a real channel, so it has to
+	// be visible here: the value next to it is what you look for in Wawi's shop
+	// tabs to find out which tab that position is.
+	type slot struct {
+		Group    int
+		Quantity int
+	}
+	seen := make(map[slot]int)
+
+	fmt.Printf("  %-6s %-12s %-7s %-7s %-12s %s\n", "Shop", "Kanal", "Gruppe", "abMenge", "Netto", "Rabatt%")
 	for _, price := range prices {
-		fmt.Printf("  %-12s %-7d %-7d %-12s %s\n",
+		key := slot{price.CustomerGroupId, price.FromQuantity}
+		seen[key]++
+
+		fmt.Printf("  %-6d %-12s %-7d %-7d %-12s %s\n",
+			seen[key],
 			price.SalesChannelId,
 			price.CustomerGroupId,
 			price.FromQuantity,
