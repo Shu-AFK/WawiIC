@@ -809,3 +809,36 @@ func decodeItems(raw []json.RawMessage) []wawi_structs.GetItem {
 
 	return items
 }
+
+// UpdateItemPriceData sets an item's standard price block. The sales channel
+// price rows only cover the customer groups that actually have a row, so a shop
+// showing the standard customer group falls back to this.
+func UpdateItemPriceData(itemID string, data wawi_structs.ItemPriceData) error {
+	payload := map[string]any{"ItemPriceData": data}
+
+	reqBody, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	reqUrl := defines.APIBaseURL + "items/" + itemID
+
+	resp, err := wawiCreateRequest("PATCH", reqUrl, bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated, http.StatusNoContent:
+		return nil
+	}
+
+	errorBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return fmt.Errorf("PATCH %s mit %s -> HTTP %d %s",
+		reqUrl, string(reqBody), resp.StatusCode, apiErrorText(errorBody))
+}

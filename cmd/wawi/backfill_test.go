@@ -190,3 +190,31 @@ func TestSortPrimaryChannelFirstWithoutPrimary(t *testing.T) {
 		t.Error("order changed although the primary channel is not present")
 	}
 }
+
+// The standard price block has to be minimised per shop field, not taken from
+// whichever child happens to be cheapest overall.
+func TestLowestItemPriceData(t *testing.T) {
+	children := []wawi_structs.GetItem{
+		{ID: 1, Item: wawi_structs.Item{SKU: "A", ItemPriceData: wawi_structs.ItemPriceData{
+			SalesPriceNet: price(12.75), EbayPrice: price(13), AmazonPrice: price(14),
+		}}},
+		{ID: 2, Item: wawi_structs.Item{SKU: "B", ItemPriceData: wawi_structs.ItemPriceData{
+			SalesPriceNet: price(11.94688), EbayPrice: price(20), AmazonPrice: nil,
+		}}},
+	}
+
+	got := lowestItemPriceData(children)
+	if *got.SalesPriceNet != 11.94688 {
+		t.Errorf("SalesPriceNet = %v, want 11.94688", *got.SalesPriceNet)
+	}
+	if *got.EbayPrice != 13 {
+		t.Errorf("EbayPrice = %v, want 13", *got.EbayPrice)
+	}
+	if *got.AmazonPrice != 14 {
+		t.Errorf("AmazonPrice = %v, want 14", *got.AmazonPrice)
+	}
+	// Not a shop price, so it must not be written at all.
+	if got.SuggestedRetailPrice != nil || got.PurchasePriceNet != nil {
+		t.Error("UVP or purchase price were set although they are not shop prices")
+	}
+}

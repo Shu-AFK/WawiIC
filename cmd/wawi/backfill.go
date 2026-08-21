@@ -27,8 +27,11 @@ type BackfillResult struct {
 	// Details lists the winning price per sales channel, customer group and
 	// quantity tier, together with the child it came from.
 	Details []BackfillPrice
-	Skipped string
-	Err     error
+	// PriceData is the standard price block the parent gets, built from the
+	// lowest value each shop field has across the children.
+	PriceData *wawi_structs.ItemPriceData
+	Skipped   string
+	Err       error
 }
 
 // BackfillPrice is one price that would be written to the parent item.
@@ -153,14 +156,33 @@ func backfillParent(parent wawi_structs.GetItem, apply bool) BackfillResult {
 	}
 	res.Details = details
 	res.Prices = len(details)
+	res.PriceData = lowestItemPriceData(children)
 
 	if apply {
+		// The standard price goes first for the same reason the primary channel
+		// does: the channel rows are the more specific value and must survive.
+		if err := UpdateItemPriceData(strconv.Itoa(parent.ID), *res.PriceData); err != nil {
+			res.Err = err
+			return res
+		}
 		if err := writeSalesChannelPrices(parent.ID, details); err != nil {
 			res.Err = err
 		}
 	}
 
 	return res
+}
+
+// lowestItemPriceData builds the standard price block from the cheapest value
+// each shop field has across the children, the same rule the sales channel rows
+// follow. Suggested retail and purchase price are not shop prices and are left
+// alone.
+func lowestItemPriceData(children []wawi_structs.GetItem) *wawi_structs.ItemPriceData {
+	return &wawi_structs.ItemPriceData{
+		SalesPriceNet: LowestPrice(children, func(p wawi_structs.ItemPriceData) *float64 { return p.SalesPriceNet }),
+		EbayPrice:     LowestPrice(children, func(p wawi_structs.ItemPriceData) *float64 { return p.EbayPrice }),
+		AmazonPrice:   LowestPrice(children, func(p wawi_structs.ItemPriceData) *float64 { return p.AmazonPrice }),
+	}
 }
 
 // writeSalesChannelPrices puts one price per sales channel slot onto an item.

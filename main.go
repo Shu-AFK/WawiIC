@@ -15,6 +15,7 @@ import (
 	"github.com/Shu-AFK/WawiIC/cmd/openai"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi"
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_registration"
+	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
 
 func pauseIfNeeded(enabled bool) {
@@ -54,8 +55,12 @@ Ablauf pro Artikel:
   4. Pro Verkaufskanal, Kundengruppe und Staffelmenge wird der niedrigste Preis
      ermittelt und auf den Vaterartikel geschrieben. Fehlt die Preiszeile am
      Vaterartikel noch, wird sie angelegt.
-  5. Der Kanal 9-7-1-2 wird immer zuerst geschrieben, weil er seinen Preis an
-     die übrigen Kanäle weitergibt.
+  5. Zusätzlich bekommt der Vaterartikel den niedrigsten Standard-, eBay- und
+     Amazonpreis seiner Kindartikel. Ohne das würde ein Shop für eine
+     Kundengruppe ohne eigene Preiszeile weiter den alten Preis zeigen.
+  6. Geschrieben wird von allgemein nach speziell: erst die Artikelpreise, dann
+     der Kanal 9-7-1-2, dann die übrigen Kanäle. So überschreibt der allgemeine
+     Preis nicht den spezifischeren.
 
 Der günstigste Kanalpreis kann also von einem anderen Kindartikel kommen als der
 günstigste Preis eines anderen Kanals. Ohne -apply wird nichts geschrieben, der
@@ -291,6 +296,9 @@ func runBackfill(itemIDs []int, categoryID int, apply bool) error {
 			// In a test run the detail is the whole point: it shows which child
 			// won each shop, so a few can be checked against Wawi before writing.
 			if !apply {
+				if res.PriceData != nil {
+					fmt.Printf("      %s\n", formatPriceData(*res.PriceData))
+				}
 				for _, detail := range res.Details {
 					fmt.Printf("      %s\n", formatPriceDetail(detail))
 				}
@@ -349,4 +357,26 @@ func printSalesChannels() error {
 	fmt.Println()
 
 	return nil
+}
+
+func formatPriceData(data wawi_structs.ItemPriceData) string {
+	parts := make([]string, 0, 3)
+	for _, field := range []struct {
+		name  string
+		value *float64
+	}{
+		{"Standardpreis", data.SalesPriceNet},
+		{"eBay", data.EbayPrice},
+		{"Amazon", data.AmazonPrice},
+	} {
+		if field.value != nil {
+			parts = append(parts, fmt.Sprintf("%s %.2f netto", field.name, *field.value))
+		}
+	}
+
+	if len(parts) == 0 {
+		return "Artikelpreise: kein Kindartikel hat einen Preis"
+	}
+
+	return "Artikelpreise: " + strings.Join(parts, ", ")
 }
