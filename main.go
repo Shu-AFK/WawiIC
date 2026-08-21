@@ -105,6 +105,25 @@ Voraussetzung:
   und das Programm starten, dann läuft die Registrierung neu. Die alte
   Autorisierung WawiIC/v1 kann in Wawi stehen bleiben.
 
+Verkaufskanäle zuordnen
+-----------------------
+Der Leseendpunkt meldet für alle Shops dieselbe Kanal-ID und sagt nicht, zu
+welchem Shop ein Preis gehört. Er listet sie aber in stabiler Reihenfolge auf.
+Deshalb wird über -price-channels der Reihe nach zugeordnet: der erste
+Preissatz eines Kindartikels geht auf den ersten genannten Kanal, der zweite
+auf den zweiten, und so weiter.
+
+  -price-channels 2-2-2,2-2-6
+
+Damit bekommt Shop 1 den niedrigsten ersten Preis über alle Kindartikel und
+Shop 2 den niedrigsten zweiten. Shops mit unterschiedlichen Preisen bleiben so
+unterschiedlich. Die Zuordnung muss zur Reihenfolge in Wawi passen, deshalb
+vorher immer ohne -apply laufen lassen und die Zeilen "Shop 1", "Shop 2" gegen
+die Reiter im Artikel prüfen. Werden weniger Kanäle genannt als es Preissätze
+gibt, werden die überzähligen nicht geschrieben.
+
+Die IDs liefert -sales-channels.
+
 Diagnose:
   -sales-channels         Listet alle Verkaufskanäle des Systems mit ID, Typ,
                           Name und ob sie Artikelpreise annehmen. Hilfreich,
@@ -358,8 +377,8 @@ func formatPriceDetail(detail wawi.BackfillPrice) string {
 		tier = fmt.Sprintf(" ab %d Stück", price.FromQuantity)
 	}
 
-	return fmt.Sprintf("Kanal %s, Kundengruppe %d%s: %s (von %s)",
-		price.SalesChannelId, price.CustomerGroupId, tier, amount, detail.SourceSKU)
+	return fmt.Sprintf("Kanal %s (Shop %d), Kundengruppe %d%s: %s (von %s)",
+		price.SalesChannelId, detail.Occurrence+1, price.CustomerGroupId, tier, amount, detail.SourceSKU)
 }
 
 // printSalesChannels lists what the system actually has. Sales channel ids are

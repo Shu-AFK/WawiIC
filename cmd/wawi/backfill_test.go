@@ -240,37 +240,49 @@ func TestLowestPriceIgnoresZero(t *testing.T) {
 	}
 }
 
-// The read endpoint cannot say which shop a price belongs to, so the lowest
-// price per customer group and tier is written to every named channel.
+// Each shop position gets its own channel, so shops that genuinely have
+// different prices stay apart instead of all receiving the cheapest one.
 func TestRetargetChannels(t *testing.T) {
 	details := []BackfillPrice{
-		{Price: channelPrice("1-1-3", 3, 0, price(16.42696), nil), SourceSKU: "A"},
-		{Price: channelPrice("1-1-3", 3, 0, price(11.94688), nil), SourceSKU: "B"},
-		{Price: channelPrice("1-1-3", 2, 0, price(18.84), nil), SourceSKU: "A"},
+		{Price: channelPrice("1-1-3", 3, 0, price(11.94688), nil), Occurrence: 0},
+		{Price: channelPrice("1-1-3", 3, 0, price(16.42696), nil), Occurrence: 1},
+		{Price: channelPrice("1-1-3", 2, 0, price(18.84), nil), Occurrence: 0},
 	}
 
 	out := retargetChannels(details, []string{"2-2-2", "2-2-6"})
 
-	if len(out) != 4 {
-		t.Fatalf("got %d prices, want 4 (2 groups x 2 channels)", len(out))
+	if len(out) != 3 {
+		t.Fatalf("got %d prices, want 3", len(out))
 	}
-
-	for _, got := range out {
-		if got.Price.SalesChannelId != "2-2-2" && got.Price.SalesChannelId != "2-2-6" {
-			t.Errorf("unexpected channel %s", got.Price.SalesChannelId)
-		}
-		// Group 3 had two candidates, the cheaper one has to win.
-		if got.Price.CustomerGroupId == 3 && *got.Price.NetPrice != 11.94688 {
-			t.Errorf("group 3 = %v, want 11.94688", *got.Price.NetPrice)
-		}
-		if got.Price.CustomerGroupId == 2 && *got.Price.NetPrice != 18.84 {
-			t.Errorf("group 2 = %v, want 18.84", *got.Price.NetPrice)
-		}
+	if out[0].Price.SalesChannelId != "2-2-2" || *out[0].Price.NetPrice != 11.94688 {
+		t.Errorf("first = %s %v", out[0].Price.SalesChannelId, *out[0].Price.NetPrice)
+	}
+	if out[1].Price.SalesChannelId != "2-2-6" || *out[1].Price.NetPrice != 16.42696 {
+		t.Errorf("second = %s %v", out[1].Price.SalesChannelId, *out[1].Price.NetPrice)
+	}
+	if out[2].Price.SalesChannelId != "2-2-2" || *out[2].Price.NetPrice != 18.84 {
+		t.Errorf("third = %s %v", out[2].Price.SalesChannelId, *out[2].Price.NetPrice)
 	}
 }
 
-// A price written to 2-2-2 comes back as 1-1-3, so the channel id must not be
-// part of the comparison - otherwise every successful write looks like a failure.
+// More shops on the children than channels named: the surplus is dropped rather
+// than written to the wrong shop.
+func TestRetargetChannelsDropsSurplus(t *testing.T) {
+	details := []BackfillPrice{
+		{Price: channelPrice("1-1-3", 3, 0, price(10), nil), Occurrence: 0},
+		{Price: channelPrice("1-1-3", 3, 0, price(20), nil), Occurrence: 1},
+	}
+
+	out := retargetChannels(details, []string{"2-2-2"})
+
+	if len(out) != 1 {
+		t.Fatalf("got %d prices, want 1", len(out))
+	}
+	if *out[0].Price.NetPrice != 10 {
+		t.Errorf("kept %v, want 10", *out[0].Price.NetPrice)
+	}
+}
+
 func TestFormatStoredValues(t *testing.T) {
 	if got := formatStoredValues(nil); got != "nichts" {
 		t.Errorf("formatStoredValues(nil) = %q, want \"nichts\"", got)

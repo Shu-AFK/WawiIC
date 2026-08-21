@@ -39,6 +39,9 @@ type BackfillResult struct {
 type BackfillPrice struct {
 	Price     wawi_structs.ItemSalesChannelPrice
 	SourceSKU string
+	// Occurrence is which shop position this price came from, counted within a
+	// child's price list. See salesChannelPriceKey.
+	Occurrence int
 }
 
 // salesChannelPriceKey identifies one price slot. A sales channel can hold a
@@ -48,6 +51,10 @@ type salesChannelPriceKey struct {
 	SalesChannelID  string
 	CustomerGroupID int
 	FromQuantity    int
+	// Occurrence separates the shops. The read endpoint reports every shop under
+	// the same channel id, but it lists them in a stable order, so the n-th time
+	// a customer group and tier appears it belongs to the n-th shop.
+	Occurrence int
 }
 
 type BackfillOptions struct {
@@ -283,6 +290,10 @@ func lowestPricePerChannel(children []wawi_structs.GetItem) ([]BackfillPrice, er
 			return nil, err
 		}
 
+		// Counted per child, so the n-th price of a group lines up with the n-th
+		// price of the same group on every other child.
+		seenInChild := make(map[salesChannelPriceKey]int)
+
 		for _, price := range prices {
 			if price.NetPrice == nil && price.ReduceStandardPriceByPercent == nil {
 				continue
@@ -293,8 +304,10 @@ func lowestPricePerChannel(children []wawi_structs.GetItem) ([]BackfillPrice, er
 				CustomerGroupID: price.CustomerGroupId,
 				FromQuantity:    price.FromQuantity,
 			}
+			key.Occurrence = seenInChild[key]
+			seenInChild[key]++
 
-			candidate := BackfillPrice{Price: price, SourceSKU: child.SKU}
+			candidate := BackfillPrice{Price: price, SourceSKU: child.SKU, Occurrence: key.Occurrence}
 			current, seen := best[key]
 			if !seen {
 				best[key] = candidate
@@ -609,38 +622,23 @@ func formatOptionalFloat(value *float64) string {
 	return fmt.Sprintf("%g", *value)
 }
 
-// retargetChannels rewrites the target channel of every price. The lowest price
-// found for a customer group and quantity tier is written to each named channel,
-// because the read endpoint cannot say which shop a price actually belongs to.
+// retargetChannels assigns each shop position to one of the named channels: the
+// first price set goes to the first channel, the second to the second, and so
+// on. The read endpoint hides which shop a price belongs to but lists them in a
+// stable order, so this keeps shops that genuinely have different prices apart
+// instead of giving every shop the same value.
 func retargetChannels(details []BackfillPrice, channels []string) []BackfillPrice {
-	type groupKey struct {
-		CustomerGroupID int
-		FromQuantity    int
-	}
-
-	best := make(map[groupKey]BackfillPrice)
-	order := make([]groupKey, 0)
+	out := make([]BackfillPrice, 0, len(details))
 
 	for _, detail := range details {
-		key := groupKey{detail.Price.CustomerGroupId, detail.Price.FromQuantity}
-		current, seen := best[key]
-		if !seen {
-			best[key] = detail
-			order = append(order, key)
+		index := detail.Occurrence
+		if index >= len(channels) {
+			// More shops on the children than channels named: nothing to write to.
 			continue
 		}
-		if isCheaper(detail.Price, current.Price) {
-			best[key] = detail
-		}
-	}
 
-	out := make([]BackfillPrice, 0, len(order)*len(channels))
-	for _, channel := range channels {
-		for _, key := range order {
-			detail := best[key]
-			detail.Price.SalesChannelId = channel
-			out = append(out, detail)
-		}
+		detail.Price.SalesChannelId = channels[index]
+		out = append(out, detail)
 	}
 
 	return out
