@@ -158,13 +158,21 @@ func backfillParent(parent wawi_structs.GetItem, apply bool) BackfillResult {
 }
 
 // writeSalesChannelPrices puts one price per sales channel slot onto an item.
+// Every slot is attempted: a channel the server refuses must not cost the parent
+// the prices of all its other channels.
 func writeSalesChannelPrices(itemID int, details []BackfillPrice) error {
 	target := strconv.Itoa(itemID)
 
+	var failures []string
 	for _, detail := range details {
 		if err := UpdateItemSalesChannelPrice(target, detail.Price); err != nil {
-			return err
+			failures = append(failures, err.Error())
 		}
+	}
+
+	if len(failures) > 0 {
+		return fmt.Errorf("%d von %d Preisen abgelehnt:\n      %s",
+			len(failures), len(details), strings.Join(failures, "\n      "))
 	}
 
 	return nil
@@ -207,11 +215,6 @@ func lowestPricePerChannel(children []wawi_structs.GetItem) ([]BackfillPrice, er
 	best := make(map[salesChannelPriceKey]BackfillPrice)
 	order := make([]salesChannelPriceKey, 0)
 
-	// Only online shops and JTL-POS accept item prices. Sending one to any other
-	// channel is rejected with a 400, even though that channel can appear in the
-	// prices read off a child item.
-	acceptsPrices, capErr := channelsAcceptingPrices()
-
 	for _, child := range children {
 		prices, err := QueryItemSalesChannelPrices(strconv.Itoa(child.ID))
 		if err != nil {
@@ -220,9 +223,6 @@ func lowestPricePerChannel(children []wawi_structs.GetItem) ([]BackfillPrice, er
 
 		for _, price := range prices {
 			if price.NetPrice == nil && price.ReduceStandardPriceByPercent == nil {
-				continue
-			}
-			if capErr == nil && !acceptsPrices[price.SalesChannelId] {
 				continue
 			}
 
@@ -443,10 +443,10 @@ var (
 	channelPriceSupportErr  error
 )
 
-// channelsAcceptingPrices reports, per sales channel id, whether item prices can
-// be written to it at all. Queried once and reused, since it is the same answer
-// for every item in a run.
-func channelsAcceptingPrices() (map[string]bool, error) {
+// ChannelPriceSupport reports, per sales channel id, whether the API says item
+// prices can be written to it. Used only to explain rejected prices, never to
+// filter them: the capability flag has proven unreliable as a predictor.
+func ChannelPriceSupport() (map[string]bool, error) {
 	channelPriceSupportOnce.Do(func() {
 		channels, err := QuerySalesChannels()
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/Shu-AFK/WawiIC/cmd/defines"
@@ -234,6 +235,26 @@ func runBackfill(itemIDs []int, categoryID int, apply bool) error {
 	}
 	if len(itemIDs) == 0 && categoryID == 0 {
 		fmt.Println("Warnung: ohne Kategorie wird der gesamte Artikelstamm durchsucht, das kann sehr lange dauern.")
+	}
+
+	// Printed once so a rejected price can be matched against what the API claims
+	// the channel supports.
+	if support, err := wawi.ChannelPriceSupport(); err == nil {
+		ids := make([]string, 0, len(support))
+		for id := range support {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+
+		parts := make([]string, 0, len(ids))
+		for _, id := range ids {
+			flag := "nein"
+			if support[id] {
+				flag = "ja"
+			}
+			parts = append(parts, fmt.Sprintf("%s=%s", id, flag))
+		}
+		fmt.Printf("Verkaufskanäle (Preise erlaubt): %s\n", strings.Join(parts, ", "))
 	}
 
 	results, err := wawi.BackfillSalesChannelPrices(wawi.BackfillOptions{
