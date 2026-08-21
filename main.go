@@ -52,7 +52,10 @@ Ablauf pro Artikel:
      Kindartikel und Artikel, die selbst Kindartikel sind, werden übersprungen.
   3. Alle Kindartikel werden geladen und deren Verkaufskanalpreise verglichen.
   4. Pro Verkaufskanal, Kundengruppe und Staffelmenge wird der niedrigste Preis
-     ermittelt und auf den Vaterartikel geschrieben.
+     ermittelt und auf den Vaterartikel geschrieben. Fehlt die Preiszeile am
+     Vaterartikel noch, wird sie angelegt.
+  5. Der Kanal 9-7-1-2 wird immer zuerst geschrieben, weil er seinen Preis an
+     die übrigen Kanäle weitergibt.
 
 Der günstigste Kanalpreis kann also von einem anderen Kindartikel kommen als der
 günstigste Preis eines anderen Kanals. Ohne -apply wird nichts geschrieben, der

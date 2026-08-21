@@ -148,3 +148,45 @@ func TestLowestPriceWithoutAnyValue(t *testing.T) {
 		t.Errorf("EbayPrice = %v, want nil", got)
 	}
 }
+
+func TestSortPrimaryChannelFirst(t *testing.T) {
+	details := []BackfillPrice{
+		{Price: channelPrice("1-1-3", 1, 0, price(10), nil)},
+		{Price: channelPrice("2-2-1", 1, 0, price(11), nil)},
+		{Price: channelPrice(PrimarySalesChannel, 1, 0, price(12), nil)},
+		{Price: channelPrice("2-2-5", 1, 0, price(13), nil)},
+		{Price: channelPrice(PrimarySalesChannel, 2, 0, price(14), nil)},
+	}
+
+	sortPrimaryChannelFirst(details)
+
+	// Both rows of the primary channel come first, in their original order.
+	if details[0].Price.SalesChannelId != PrimarySalesChannel || details[0].Price.CustomerGroupId != 1 {
+		t.Errorf("first = %s/%d", details[0].Price.SalesChannelId, details[0].Price.CustomerGroupId)
+	}
+	if details[1].Price.SalesChannelId != PrimarySalesChannel || details[1].Price.CustomerGroupId != 2 {
+		t.Errorf("second = %s/%d", details[1].Price.SalesChannelId, details[1].Price.CustomerGroupId)
+	}
+
+	// The rest keeps the order it had.
+	rest := []string{details[2].Price.SalesChannelId, details[3].Price.SalesChannelId, details[4].Price.SalesChannelId}
+	want := []string{"1-1-3", "2-2-1", "2-2-5"}
+	for i := range want {
+		if rest[i] != want[i] {
+			t.Errorf("rest[%d] = %s, want %s", i, rest[i], want[i])
+		}
+	}
+}
+
+func TestSortPrimaryChannelFirstWithoutPrimary(t *testing.T) {
+	details := []BackfillPrice{
+		{Price: channelPrice("1-1-3", 1, 0, price(10), nil)},
+		{Price: channelPrice("2-2-1", 1, 0, price(11), nil)},
+	}
+
+	sortPrimaryChannelFirst(details)
+
+	if details[0].Price.SalesChannelId != "1-1-3" || details[1].Price.SalesChannelId != "2-2-1" {
+		t.Error("order changed although the primary channel is not present")
+	}
+}

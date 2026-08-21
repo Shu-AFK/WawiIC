@@ -2,6 +2,7 @@ package wawi
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -11,6 +12,11 @@ import (
 
 // ParentAnnotation marks the items created by this tool.
 const ParentAnnotation = "Mit API erstellt"
+
+// PrimarySalesChannel carries its price through to the other sales channels, so
+// it has to be written before them. Written afterwards it would overwrite the
+// channel specific prices that were just set.
+const PrimarySalesChannel = "9-7-1-2"
 
 type BackfillResult struct {
 	ParentSKU string
@@ -249,8 +255,18 @@ func lowestPricePerChannel(children []wawi_structs.GetItem) ([]BackfillPrice, er
 	for _, key := range order {
 		details = append(details, best[key])
 	}
+	sortPrimaryChannelFirst(details)
 
 	return details, nil
+}
+
+// sortPrimaryChannelFirst moves the primary channel to the front, leaving the
+// order of everything else untouched.
+func sortPrimaryChannelFirst(details []BackfillPrice) {
+	sort.SliceStable(details, func(i, j int) bool {
+		return details[i].Price.SalesChannelId == PrimarySalesChannel &&
+			details[j].Price.SalesChannelId != PrimarySalesChannel
+	})
 }
 
 // isCheaper reports whether a undercuts b. A concrete net price always wins over
