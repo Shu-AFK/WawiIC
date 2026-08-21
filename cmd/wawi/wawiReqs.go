@@ -21,7 +21,7 @@ import (
 func QuerySalesChannels() ([]wawi_structs.SalesChannel, error) {
 	var channels []wawi_structs.SalesChannel
 
-	url := fmt.Sprintf("%s/salesChannels", defines.APIBaseURL)
+	url := defines.APIBaseURL + "salesChannels"
 	resp, err := wawiCreateRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -598,16 +598,45 @@ func QueryItemSalesChannelPrices(itemID string) ([]wawi_structs.ItemSalesChannel
 	return prices, nil
 }
 
-func UpdateItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChannelPrice) error {
-	// NetPrice and ReduceStandardPriceByPercent are mutually exclusive, so only one may be sent.
-	var updateBody wawi_structs.UpdateSalesChannelPrice
+// ErrSalesChannelPriceMissing means the item has no price row for that channel,
+// customer group and quantity tier yet. The update endpoint can only change an
+// existing row, so the row has to be created first.
+var ErrSalesChannelPriceMissing = errors.New("Verkaufskanalpreis existiert noch nicht")
+
+// chosenPrice returns the one value that may be sent. NetPrice and
+// ReduceStandardPriceByPercent are mutually exclusive, and the read endpoint
+// always returns both, so exactly one has to be picked here.
+func chosenPrice(price wawi_structs.ItemSalesChannelPrice) (net *float64, percent *float64, ok bool) {
 	switch {
 	case price.ReduceStandardPriceByPercent != nil && *price.ReduceStandardPriceByPercent != 0:
-		updateBody.ReduceStandardPriceByPercent = price.ReduceStandardPriceByPercent
+		return nil, price.ReduceStandardPriceByPercent, true
 	case price.NetPrice != nil:
-		updateBody.NetPrice = price.NetPrice
+		return price.NetPrice, nil, true
 	default:
+		return nil, nil, false
+	}
+}
+
+// SetItemSalesChannelPrice gives an item a sales channel price, creating the row
+// when the item does not have one for that channel yet.
+func SetItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChannelPrice) error {
+	err := UpdateItemSalesChannelPrice(itemID, price)
+	if !errors.Is(err, ErrSalesChannelPriceMissing) {
+		return err
+	}
+
+	return CreateItemSalesChannelPrice(itemID, price)
+}
+
+func UpdateItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChannelPrice) error {
+	net, percent, ok := chosenPrice(price)
+	if !ok {
 		return nil
+	}
+
+	updateBody := wawi_structs.UpdateSalesChannelPrice{
+		NetPrice:                     net,
+		ReduceStandardPriceByPercent: percent,
 	}
 
 	reqUrl := fmt.Sprintf("%sitems/%s/salesChannelPrices/%s/%d/%d",
@@ -629,19 +658,123 @@ func UpdateItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChan
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNoContent {
-		errorBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		// The request itself is part of the message: a rejected price is almost
-		// always about which channel, customer group or tier was addressed, and
-		// that is only visible in the URL and body that were actually sent.
-		return fmt.Errorf("PATCH %s mit %s -> HTTP %d %s",
-			reqUrl, string(reqBody), resp.StatusCode, strings.TrimSpace(string(errorBody)))
+	if resp.StatusCode == http.StatusNoContent {
+		return nil
 	}
 
-	return nil
+	errorBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if isMissingPriceRow(resp.StatusCode, errorBody) {
+		return ErrSalesChannelPriceMissing
+	}
+
+	return fmt.Errorf("PATCH %s mit %s -> HTTP %d %s",
+		reqUrl, string(reqBody), resp.StatusCode, apiErrorText(errorBody))
+}
+
+func CreateItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChannelPrice) error {
+	net, percent, ok := chosenPrice(price)
+	if !ok {
+		return nil
+	}
+
+	createBody := wawi_structs.CreateSalesChannelPrice{
+		SalesChannelId:               price.SalesChannelId,
+		CustomerGroupId:              price.CustomerGroupId,
+		FromQuantity:                 price.FromQuantity,
+		NetPrice:                     net,
+		ReduceStandardPriceByPercent: percent,
+	}
+
+	reqUrl := defines.APIBaseURL + "items/" + itemID + "/salesChannelPrices"
+
+	reqBody, err := json.Marshal(createBody)
+	if err != nil {
+		return err
+	}
+
+	resp, err := wawiCreateRequest("POST", reqUrl, bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+
+	errorBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return fmt.Errorf("POST %s mit %s -> HTTP %d %s",
+		reqUrl, string(reqBody), resp.StatusCode, apiErrorText(errorBody))
+}
+
+// isMissingPriceRow spots the update endpoint complaining that there is nothing
+// to update, which is the signal to create the row instead.
+func isMissingPriceRow(status int, body []byte) bool {
+	if status != http.StatusBadRequest && status != http.StatusNotFound {
+		return false
+	}
+
+	return strings.Contains(string(body), "NotFound")
+}
+
+// apiErrorText reduces an error response to the part worth reading. Wawi answers
+// with a full .NET stack trace, which buries the actual message.
+func apiErrorText(body []byte) string {
+	var payload struct {
+		ErrorCode    string `json:"ErrorCode"`
+		ErrorMessage string `json:"ErrorMessage"`
+	}
+
+	if err := json.Unmarshal(body, &payload); err == nil && (payload.ErrorCode != "" || payload.ErrorMessage != "") {
+		return strings.TrimSpace(payload.ErrorCode + ": " + strings.Trim(strings.TrimSpace(payload.ErrorMessage), "- "))
+	}
+
+	text := strings.TrimSpace(string(body))
+	if len(text) > 300 {
+		text = text[:300] + " ..."
+	}
+
+	return text
+}
+
+// GetItemByID fetches one item directly instead of searching for it. Returns
+// false when no item with that id exists.
+func GetItemByID(itemID int) (*wawi_structs.GetItem, bool, error) {
+	reqUrl := defines.APIBaseURL + "items/" + strconv.Itoa(itemID)
+
+	resp, err := wawiCreateRequest("GET", reqUrl, nil)
+	if err != nil {
+		return nil, false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, false, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, false, fmt.Errorf("failed to get item %d: %v (%v)", itemID, resp.StatusCode, string(body))
+	}
+
+	var item wawi_structs.GetItem
+	if err := json.Unmarshal(body, &item); err != nil {
+		return nil, false, err
+	}
+
+	return &item, true, nil
 }
 
 // rawItemPage defers decoding the items so that one malformed article cannot
@@ -675,36 +808,4 @@ func decodeItems(raw []json.RawMessage) []wawi_structs.GetItem {
 	}
 
 	return items
-}
-
-// GetItemByID fetches one item directly instead of searching for it. Returns
-// false when no item with that id exists.
-func GetItemByID(itemID int) (*wawi_structs.GetItem, bool, error) {
-	reqUrl := defines.APIBaseURL + "items/" + strconv.Itoa(itemID)
-
-	resp, err := wawiCreateRequest("GET", reqUrl, nil)
-	if err != nil {
-		return nil, false, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, false, nil
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, false, fmt.Errorf("failed to get item %d: %v (%v)", itemID, resp.StatusCode, string(body))
-	}
-
-	var item wawi_structs.GetItem
-	if err := json.Unmarshal(body, &item); err != nil {
-		return nil, false, err
-	}
-
-	return &item, true, nil
 }

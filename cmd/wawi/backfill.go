@@ -165,7 +165,7 @@ func writeSalesChannelPrices(itemID int, details []BackfillPrice) error {
 
 	var failures []string
 	for _, detail := range details {
-		if err := UpdateItemSalesChannelPrice(target, detail.Price); err != nil {
+		if err := SetItemSalesChannelPrice(target, detail.Price); err != nil {
 			failures = append(failures, err.Error())
 		}
 	}

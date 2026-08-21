@@ -91,10 +91,11 @@ Beispiele:
 
 Voraussetzung:
   Die App muss in JTL-Wawi registriert sein. Die Berechtigungen für
-  Verkaufskanalpreise sind in 1.0.2 dazugekommen. Registrierungen aus älteren
-  Versionen müssen einmalig erneuert werden: App-Autorisierung in Wawi
-  entfernen, Umgebungsvariable WAWIIC_APIKEY löschen, neues Fenster öffnen,
-  Programm starten.
+  Verkaufskanalpreise sind in 1.0.2 dazugekommen, das Anlegen neuer
+  Verkaufskanalpreise in 1.0.7. Registrierungen aus älteren Versionen müssen
+  einmalig erneuert werden: App-Autorisierung in Wawi entfernen,
+  Umgebungsvariable WAWIIC_APIKEY löschen, neues Fenster öffnen, Programm
+  starten.
 
 Optionen:
 `)

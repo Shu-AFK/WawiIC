@@ -351,3 +351,11 @@ type UpdateSalesChannelPrice struct {
 	NetPrice                     *float64 `json:"NetPrice,omitempty"`
 	ReduceStandardPriceByPercent *float64 `json:"ReduceStandardPriceByPercent,omitempty"`
 }
+
+type CreateSalesChannelPrice struct {
+	SalesChannelId               string   `json:"SalesChannelId"`
+	CustomerGroupId              int      `json:"CustomerGroupId"`
+	FromQuantity                 int      `json:"FromQuantity"`
+	NetPrice                     *float64 `json:"NetPrice,omitempty"`
+	ReduceStandardPriceByPercent *float64 `json:"ReduceStandardPriceByPercent,omitempty"`
+}

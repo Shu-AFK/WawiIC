@@ -10,7 +10,7 @@ const (
 	AppID           = "WawiIC/v1"
 	DisplayName     = "WawiIC"
 	Description     = "Artikel zu Vaterartikeln zusammenführen"
-	Version         = "1.0.6"
+	Version         = "1.0.7"
 	ProviderName    = "Floyd Göttsch"
 	ProviderWebsite = "https://www.alpa-industrievertretungen.de/"
 	XChallangeCode  = "wh5x1kgdm2koqsc31rfly3s"
@@ -37,6 +37,7 @@ var MandatoryAPIScope = []string{
 	"item.createitemdescription",
 	"item.queryitemsaleschannelprice",
 	"item.updateitemsaleschannelprice",
+	"item.createitemsaleschannelprice",
 }
 
 type AppData struct {
