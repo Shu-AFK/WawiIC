@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Shu-AFK/WawiIC/cmd/defines"
@@ -109,6 +110,12 @@ Diagnose:
                           Name und ob sie Artikelpreise annehmen. Hilfreich,
                           wenn ein Preis abgelehnt wird.
 
+  -inspect <id>           Gibt zu einem Internen Schlüssel den Artikel und alle
+                          seine Kindartikel aus, jeweils mit sämtlichen
+                          Verkaufskanalpreisen so, wie die API sie sieht. Zeigt,
+                          unter welchem Kanal, welcher Kundengruppe und welcher
+                          Staffelmenge ein Preis tatsächlich liegt.
+
 Optionen:
 `)
 	flag.PrintDefaults()
@@ -124,6 +131,7 @@ func main() {
 	backfillCatFlag := flag.Int("backfill-category", -1, "zusammen mit -backfill-prices: zu durchsuchende Kategorie (Standard: die aus der config, 0 = alle Artikel)")
 	backfillIDsFlag := flag.String("backfill-ids", "", "Datei mit einem Internen Schlüssel pro Zeile (impliziert -backfill-prices)")
 	channelsFlag := flag.Bool("sales-channels", false, "die Verkaufskanäle des Systems auflisten und beenden")
+	inspectFlag := flag.Int("inspect", 0, "einen Artikel und seine Kindartikel mit allen Verkaufskanalpreisen ausgeben")
 	backfillCSVFlag := flag.String("backfill-csv", "", "JTL-Ameise Export, die Internen Schlüssel daraus werden bearbeitet (impliziert -backfill-prices)")
 	flag.Parse()
 
@@ -214,6 +222,14 @@ func main() {
 	// here would look like the program simply ignored the file.
 	if *backfillCSVFlag != "" || *backfillIDsFlag != "" {
 		*backfillFlag = true
+	}
+
+	if *inspectFlag != 0 {
+		if err := inspectItem(*inspectFlag); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			exit(1, *pauseFlag)
+		}
+		exit(0, *pauseFlag)
 	}
 
 	if *channelsFlag {
@@ -379,4 +395,67 @@ func formatPriceData(data wawi_structs.ItemPriceData) string {
 	}
 
 	return "Artikelpreise: " + strings.Join(parts, ", ")
+}
+
+// inspectItem prints what the API reports for one item and its children. Wawi's
+// own screen and the API do not always agree on which key a price sits under,
+// and only the API view explains why a write is refused.
+func inspectItem(id int) error {
+	parent, found, err := wawi.GetItemByID(id)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("Artikel %d nicht gefunden", id)
+	}
+
+	printItemPrices("VATER", *parent)
+
+	for _, childID := range parent.ChildItems {
+		child, found, err := wawi.GetItemByID(childID)
+		if err != nil {
+			return err
+		}
+		if !found {
+			fmt.Printf("\nKIND %d nicht gefunden\n", childID)
+			continue
+		}
+		printItemPrices("KIND", *child)
+	}
+
+	return nil
+}
+
+func printItemPrices(label string, item wawi_structs.GetItem) {
+	fmt.Printf("\n%s %d %s\n", label, item.ID, item.SKU)
+	fmt.Printf("  Artikelpreise: %s\n", formatPriceData(item.ItemPriceData))
+
+	prices, err := wawi.QueryItemSalesChannelPrices(strconv.Itoa(item.ID))
+	if err != nil {
+		fmt.Printf("  Verkaufskanalpreise: FEHLER %v\n", err)
+		return
+	}
+	if len(prices) == 0 {
+		fmt.Printf("  Verkaufskanalpreise: keine\n")
+		return
+	}
+
+	fmt.Printf("  %-12s %-7s %-7s %-12s %s\n", "Kanal", "Gruppe", "abMenge", "Netto", "Rabatt%")
+	for _, price := range prices {
+		fmt.Printf("  %-12s %-7d %-7d %-12s %s\n",
+			price.SalesChannelId,
+			price.CustomerGroupId,
+			price.FromQuantity,
+			formatOptionalPrice(price.NetPrice),
+			formatOptionalPrice(price.ReduceStandardPriceByPercent),
+		)
+	}
+}
+
+func formatOptionalPrice(value *float64) string {
+	if value == nil {
+		return "-"
+	}
+
+	return fmt.Sprintf("%g", *value)
 }
