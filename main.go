@@ -442,6 +442,14 @@ func printItemPrices(label string, item wawi_structs.GetItem) {
 	fmt.Printf("\n%s %d %s\n", label, item.ID, item.SKU)
 	fmt.Printf("  %s\n", formatPriceData(item.ItemPriceData))
 
+	// A price can only exist on a channel the item is actually active on, so this
+	// is the first thing to check when a write leaves no trace.
+	active := "keine"
+	if len(item.ActiveSalesChannels) > 0 {
+		active = strings.Join(item.ActiveSalesChannels, ", ")
+	}
+	fmt.Printf("  Aktive Verkaufskanäle: %s\n", active)
+
 	prices, err := wawi.QueryItemSalesChannelPrices(strconv.Itoa(item.ID))
 	if err != nil {
 		fmt.Printf("  Verkaufskanalpreise: FEHLER %v\n", err)

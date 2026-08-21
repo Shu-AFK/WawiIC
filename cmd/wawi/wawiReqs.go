@@ -138,11 +138,15 @@ func CreateParentItem(item wawi_structs.ItemCreate) (*wawi_structs.GetItem, erro
 	return &respJSON, nil
 }
 
-func SetItemActiveSalesChannels(itemID string, _ []string) error {
-	reqUrl := defines.APIBaseURL + "items/" + itemID
+func SetItemActiveSalesChannels(itemID string, channels []string) error {
+	if len(channels) == 0 {
+		return nil
+	}
+
+	reqUrl := defines.APIBaseURL + "items/" + itemID + "?disableAutomaticWorkflows=true"
 
 	payload := map[string]any{
-		"ActiveSalesChannels": []string{"9-7-1-2"},
+		"ActiveSalesChannels": channels,
 	}
 
 	jsonBody, err := json.Marshal(payload)

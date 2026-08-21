@@ -173,6 +173,13 @@ func backfillParent(parent wawi_structs.GetItem, apply bool, priceChannels []str
 		// A refused standard price must not cost the channel prices though, so
 		// both steps run and their errors are reported together.
 		var problems []string
+
+		// An item that is not active on a channel cannot hold a price for it, and
+		// the write is accepted and dropped rather than refused. Activating the
+		// target channels first is what makes the price stick.
+		if err := ensureActiveChannels(parent, details); err != nil {
+			problems = append(problems, "Kanäle aktivieren: "+err.Error())
+		}
 		if err := UpdateItemPriceData(strconv.Itoa(parent.ID), *res.PriceData); err != nil {
 			problems = append(problems, "Artikelpreise: "+err.Error())
 		}
@@ -617,4 +624,36 @@ func retargetChannels(details []BackfillPrice, channels []string) []BackfillPric
 	}
 
 	return out
+}
+
+// ensureActiveChannels adds every channel a price is about to be written to to
+// the item's active sales channels, keeping the ones it already has.
+func ensureActiveChannels(parent wawi_structs.GetItem, details []BackfillPrice) error {
+	active := make(map[string]struct{}, len(parent.ActiveSalesChannels))
+	channels := make([]string, 0, len(parent.ActiveSalesChannels)+len(details))
+
+	for _, channel := range parent.ActiveSalesChannels {
+		if _, seen := active[channel]; seen {
+			continue
+		}
+		active[channel] = struct{}{}
+		channels = append(channels, channel)
+	}
+
+	added := false
+	for _, detail := range details {
+		channel := detail.Price.SalesChannelId
+		if _, seen := active[channel]; seen {
+			continue
+		}
+		active[channel] = struct{}{}
+		channels = append(channels, channel)
+		added = true
+	}
+
+	if !added {
+		return nil
+	}
+
+	return SetItemActiveSalesChannels(strconv.Itoa(parent.ID), channels)
 }
