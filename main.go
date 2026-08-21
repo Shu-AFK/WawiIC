@@ -90,12 +90,16 @@ Beispiele:
   WawiIC.exe -config "D:\configs\custom.json"
 
 Voraussetzung:
-  Die App muss in JTL-Wawi registriert sein. Die Berechtigungen für
-  Verkaufskanalpreise sind in 1.0.2 dazugekommen, das Anlegen neuer
-  Verkaufskanalpreise in 1.0.7. Registrierungen aus älteren Versionen müssen
-  einmalig erneuert werden: App-Autorisierung in Wawi entfernen,
-  Umgebungsvariable WAWIIC_APIKEY löschen, neues Fenster öffnen, Programm
-  starten.
+  Die App muss in JTL-Wawi registriert sein. Ab 1.0.7 meldet sie sich als
+  WawiIC/v2 an, weil neue Berechtigungen dazugekommen sind. Beim ersten Start
+  einfach die Umgebungsvariable WAWIIC_APIKEY löschen, ein neues Fenster öffnen
+  und das Programm starten, dann läuft die Registrierung neu. Die alte
+  Autorisierung WawiIC/v1 kann in Wawi stehen bleiben.
+
+Diagnose:
+  -sales-channels         Listet alle Verkaufskanäle des Systems mit ID, Typ,
+                          Name und ob sie Artikelpreise annehmen. Hilfreich,
+                          wenn ein Preis abgelehnt wird.
 
 Optionen:
 `)
@@ -111,6 +115,7 @@ func main() {
 	applyFlag := flag.Bool("apply", false, "zusammen mit -backfill-prices: Änderungen wirklich schreiben (sonst nur Testlauf)")
 	backfillCatFlag := flag.Int("backfill-category", -1, "zusammen mit -backfill-prices: zu durchsuchende Kategorie (Standard: die aus der config, 0 = alle Artikel)")
 	backfillIDsFlag := flag.String("backfill-ids", "", "Datei mit einem Internen Schlüssel pro Zeile (impliziert -backfill-prices)")
+	channelsFlag := flag.Bool("sales-channels", false, "die Verkaufskanäle des Systems auflisten und beenden")
 	backfillCSVFlag := flag.String("backfill-csv", "", "JTL-Ameise Export, die Internen Schlüssel daraus werden bearbeitet (impliziert -backfill-prices)")
 	flag.Parse()
 
@@ -203,6 +208,14 @@ func main() {
 		*backfillFlag = true
 	}
 
+	if *channelsFlag {
+		if err := printSalesChannels(); err != nil {
+			fmt.Fprintf(os.Stderr, "Verkaufskanäle konnten nicht geladen werden: %v\n", err)
+			exit(1, *pauseFlag)
+		}
+		exit(0, *pauseFlag)
+	}
+
 	if *backfillFlag {
 		category := *backfillCatFlag
 		if category < 0 {
@@ -238,24 +251,10 @@ func runBackfill(itemIDs []int, categoryID int, apply bool) error {
 		fmt.Println("Warnung: ohne Kategorie wird der gesamte Artikelstamm durchsucht, das kann sehr lange dauern.")
 	}
 
-	// Printed once so a rejected price can be matched against what the API claims
-	// the channel supports.
-	if support, err := wawi.ChannelPriceSupport(); err == nil {
-		ids := make([]string, 0, len(support))
-		for id := range support {
-			ids = append(ids, id)
-		}
-		sort.Strings(ids)
-
-		parts := make([]string, 0, len(ids))
-		for _, id := range ids {
-			flag := "nein"
-			if support[id] {
-				flag = "ja"
-			}
-			parts = append(parts, fmt.Sprintf("%s=%s", id, flag))
-		}
-		fmt.Printf("Verkaufskanäle (Preise erlaubt): %s\n", strings.Join(parts, ", "))
+	// Printed once so a rejected price can be matched against the channel it was
+	// meant for.
+	if err := printSalesChannels(); err != nil {
+		fmt.Fprintf(os.Stderr, "Verkaufskanäle konnten nicht geladen werden: %v\n", err)
 	}
 
 	results, err := wawi.BackfillSalesChannelPrices(wawi.BackfillOptions{
@@ -322,4 +321,29 @@ func formatPriceDetail(detail wawi.BackfillPrice) string {
 
 	return fmt.Sprintf("Kanal %s, Kundengruppe %d%s: %s (von %s)",
 		price.SalesChannelId, price.CustomerGroupId, tier, amount, detail.SourceSKU)
+}
+
+// printSalesChannels lists what the system actually has. Sales channel ids are
+// not guessable and differ per installation, so a rejected price is only
+// explainable next to this list.
+func printSalesChannels() error {
+	channels, err := wawi.QuerySalesChannels()
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(channels, func(i, j int) bool { return channels[i].Id < channels[j].Id })
+
+	fmt.Printf("\nVerkaufskanäle (%d):\n", len(channels))
+	fmt.Printf("  %-12s %-6s %-8s %s\n", "ID", "Typ", "Preise", "Name")
+	for _, channel := range channels {
+		prices := "nein"
+		if channel.ItemCapabilities.Prices {
+			prices = "ja"
+		}
+		fmt.Printf("  %-12s %-6d %-8s %s\n", channel.Id, channel.Type, prices, channel.Name)
+	}
+	fmt.Println()
+
+	return nil
 }

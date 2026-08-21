@@ -7,7 +7,10 @@ import (
 )
 
 const (
-	AppID           = "WawiIC/v1"
+	// Bumped whenever the requested API scopes change: Wawi ties granted scopes to
+	// the app id, so a new id registers cleanly instead of colliding with an
+	// existing authorisation that lacks the new permissions.
+	AppID           = "WawiIC/v2"
 	DisplayName     = "WawiIC"
 	Description     = "Artikel zu Vaterartikeln zusammenführen"
 	Version         = "1.0.7"
