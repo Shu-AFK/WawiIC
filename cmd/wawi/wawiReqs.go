@@ -639,7 +639,9 @@ func UpdateItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChan
 		ReduceStandardPriceByPercent: percent,
 	}
 
-	reqUrl := fmt.Sprintf("%sitems/%s/salesChannelPrices/%s/%d/%d",
+	// Same reason the item creation disables them: a workflow reacting to the
+	// write can recalculate the price straight back to what it was.
+	reqUrl := fmt.Sprintf("%sitems/%s/salesChannelPrices/%s/%d/%d?disableAutomaticWorkflows=true",
 		defines.APIBaseURL,
 		itemID,
 		url.PathEscape(price.SalesChannelId),
@@ -689,7 +691,7 @@ func CreateItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChan
 		ReduceStandardPriceByPercent: percent,
 	}
 
-	reqUrl := defines.APIBaseURL + "items/" + itemID + "/salesChannelPrices"
+	reqUrl := defines.APIBaseURL + "items/" + itemID + "/salesChannelPrices?disableAutomaticWorkflows=true"
 
 	reqBody, err := json.Marshal(createBody)
 	if err != nil {
@@ -821,7 +823,7 @@ func UpdateItemPriceData(itemID string, data wawi_structs.ItemPriceData) error {
 		return err
 	}
 
-	reqUrl := defines.APIBaseURL + "items/" + itemID
+	reqUrl := defines.APIBaseURL + "items/" + itemID + "?disableAutomaticWorkflows=true"
 
 	resp, err := wawiCreateRequest("PATCH", reqUrl, bytes.NewReader(reqBody))
 	if err != nil {
