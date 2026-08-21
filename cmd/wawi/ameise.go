@@ -14,7 +14,10 @@ import (
 
 // idHeaders are the column names a JTL-Ameise item export uses for the internal
 // item id, in the order they are preferred.
-var idHeaders = []string{"kartikel", "interneid", "artikelid", "itemid", "id"}
+var idHeaders = []string{
+	"internerschlüssel", "internerschluessel", "internerschlussel",
+	"kartikel", "interneid", "artikelid", "itemid", "id",
+}
 
 // ParseAmeiseCSV pulls the internal item ids out of a JTL-Ameise export. Encoding
 // and delimiter are configurable in Ameise, so both are detected from the file

@@ -72,6 +72,7 @@ WawiIC.exe -config "D:\\MeineConfigs\\custom.json"
 - **Category/Supplier search mode**: Bei vielen Kategorien, kann das starten der App sehr lange dauern, da es erstmal alle finden muss.
 - **Manche Artikel werden nicht gefunden**: Wenn manche Artikel nicht gefunden werden, hilft es manchmal nur nach teilen des Titels oder der Artikel zu suchen, bzw. nach dem vollständigen Name/Artikelnummer
 - **Programm/API server hängt sich auf**: Falls das passiert, am besten WawiIC und den API server neu starten.
+- **Preise am Vaterartikel**: Pro Verkaufskanal, Kundengruppe und Staffelmenge bekommt der Vaterartikel den niedrigsten Preis über alle Kindartikel. Die Kanäle können dabei aus verschiedenen Kindartikeln stammen. Das gilt beim Zusammenführen genauso wie beim Nachtragen per `-backfill-prices`.
 - **Vaterartikel überprüfen**: Nach dem zusammenfügen von Artikeln sollte die Artikelbeschreibung, die Bilder, die SEO Beschreibung überprüfen, da KI Fehler machen kann.
 - **Mehrere Suchen**: Wenn man nach Artikeln sucht, einen oder mehrere auswählt und danach nochmal sucht, sind die vorherigen Artikel immer noch ausgewählt
 ---
@@ -87,7 +88,11 @@ WawiIC.exe -backfill-prices -apply   # schreibt die Preise
 ```
 
 Schneller und empfohlen: die Vaterartikel per JTL-Ameise mit der Spalte
-`kArtikel` exportieren und die Datei übergeben, dann muss nichts gesucht werden.
+`Interner Schlüssel` exportieren und die Datei übergeben, dann muss nichts
+gesucht werden.
+
+Pro Verkaufskanal wird der niedrigste Preis über alle Kindartikel ermittelt, die
+Kanäle können also aus verschiedenen Kindartikeln stammen.
 
 ```sh
 WawiIC.exe -backfill-csv export.csv -backfill-prices

@@ -155,7 +155,6 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 	}
 
 	items := collectItemsFromCombinations(combinations)
-	cheapestItem := items[findCheapestItem(items)]
 	parentItem := createParentStruct(productSEO, items, sku)
 
 	item, err := CreateParentItem(parentItem)
@@ -270,7 +269,7 @@ func HandleAssignDone(combinations []gui_structs.Combination, variations map[str
 
 	// Runs after the sales channels are active, otherwise the prices have nothing to attach to.
 	go func() {
-		salesChannelPriceChannel <- copySalesChannelPrices(cheapestItem.ID, item.ID)
+		salesChannelPriceChannel <- ApplyLowestPricePerChannel(items, item.ID)
 	}()
 
 	if ActivateSalesChannel {
@@ -522,12 +521,16 @@ func createParentStruct(seo *openai_structs.ProductSEO, items []wawi_structs.Get
 		Identifiers: &wawi_structs.Identifiers{
 			ManufacturerNumber: PtrIfSet(removeUpToFirstDash(newSKU)),
 		},
+		// eBay and Amazon are shops in their own right, so they get the cheapest
+		// variant's price for that shop rather than whichever price happens to sit
+		// on the item that is cheapest overall. The suggested retail and purchase
+		// price are not shop prices and stay with the cheapest item.
 		ItemPriceData: &wawi_structs.ItemPriceData{
-			SalesPriceNet:        items[cheapestItemIndex].ItemPriceData.SalesPriceNet,
+			SalesPriceNet:        LowestPrice(items, func(p wawi_structs.ItemPriceData) *float64 { return p.SalesPriceNet }),
 			SuggestedRetailPrice: items[cheapestItemIndex].ItemPriceData.SuggestedRetailPrice,
 			PurchasePriceNet:     items[cheapestItemIndex].ItemPriceData.PurchasePriceNet,
-			EbayPrice:            items[cheapestItemIndex].ItemPriceData.EbayPrice,
-			AmazonPrice:          items[cheapestItemIndex].ItemPriceData.AmazonPrice,
+			EbayPrice:            LowestPrice(items, func(p wawi_structs.ItemPriceData) *float64 { return p.EbayPrice }),
+			AmazonPrice:          LowestPrice(items, func(p wawi_structs.ItemPriceData) *float64 { return p.AmazonPrice }),
 		},
 		Annotation:      "Mit API erstellt",
 		Added:           ts,
@@ -656,22 +659,4 @@ func imageExists(path string) bool {
 		return true
 	}
 	return false
-}
-
-// copySalesChannelPrices transfers every sales channel price of the source item
-// (customer group and scale price included) onto the newly created parent item.
-func copySalesChannelPrices(sourceItemID int, targetItemID int) error {
-	prices, err := QueryItemSalesChannelPrices(strconv.Itoa(sourceItemID))
-	if err != nil {
-		return err
-	}
-
-	target := strconv.Itoa(targetItemID)
-	for _, price := range prices {
-		if err := UpdateItemSalesChannelPrice(target, price); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

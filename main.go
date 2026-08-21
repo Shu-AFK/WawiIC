@@ -43,19 +43,32 @@ Verkaufskanalpreise nachtragen
 ------------------------------
 Vaterartikel, die vor Version 1.0.2 erstellt wurden, haben nur den Standardpreis
 bekommen, nicht die Preise der einzelnen Verkaufskanäle. Der Backfill trägt diese
-nach: zu jedem Vaterartikel werden die Kindartikel geladen und die Preise von dem
-Kind übernommen, von dem auch der Standardpreis des Vaterartikels stammt.
+nach.
 
-Ohne -apply wird nichts geschrieben, der Lauf zeigt nur, was er tun würde. Ein
-Lauf kann gefahrlos wiederholt werden, die Preise werden absolut gesetzt.
+Ablauf pro Artikel:
+  1. Artikel wird direkt über seine interne ID geladen.
+  2. Es wird geprüft, ob es wirklich ein Vaterartikel ist. Artikel ohne
+     Kindartikel und Artikel, die selbst Kindartikel sind, werden übersprungen.
+  3. Alle Kindartikel werden geladen und deren Verkaufskanalpreise verglichen.
+  4. Pro Verkaufskanal, Kundengruppe und Staffelmenge wird der niedrigste Preis
+     ermittelt und auf den Vaterartikel geschrieben.
+
+Der günstigste Kanalpreis kann also von einem anderen Kindartikel kommen als der
+günstigste Preis eines anderen Kanals. Ohne -apply wird nichts geschrieben, der
+Lauf listet für jeden Kanal den gefundenen Preis und das Kind, aus dem er stammt.
+Ein Lauf kann gefahrlos wiederholt werden, die Preise werden absolut gesetzt.
+
+Beim Zusammenführen von Artikeln in der Oberfläche gilt ab 1.0.4 dieselbe Regel,
+neu angelegte und nachgetragene Vaterartikel bekommen also dieselben Preise.
 
 Welche Artikel bearbeitet werden, eine der drei Varianten:
 
-  -backfill-csv <datei>   JTL-Ameise Export. Gelesen wird die Spalte kArtikel
-                          (oder Interne ID, Artikel-ID, ItemId, Id). Die Spalte
-                          muss nicht die erste sein. Trennzeichen (;  ,  Tab  |)
-                          und Kodierung (UTF-16, UTF-8, ANSI) werden erkannt.
-                          Der Dateiname ist beliebig.
+  -backfill-csv <datei>   JTL-Ameise Export. Gelesen wird die Spalte
+                          "Interner Schlüssel" (auch kArtikel, Interne ID,
+                          Artikel-ID, ItemId, Id). Die Spalte muss nicht die
+                          erste sein. Trennzeichen (;  ,  Tab  |) und Kodierung
+                          (UTF-16, UTF-8, ANSI) werden erkannt. Der Dateiname
+                          ist beliebig.
 
   -backfill-ids <datei>   Textdatei mit einer internen Artikel-ID pro Zeile.
                           Leerzeilen und Zeilen mit # werden übersprungen.
@@ -236,11 +249,19 @@ func runBackfill(itemIDs []int, categoryID int, apply bool) error {
 			fmt.Printf("  ÜBERSPRUNGEN %s: %s\n", res.ParentSKU, res.Skipped)
 		default:
 			updated++
-			verb := "würde übernehmen"
+			verb := "würden gesetzt"
 			if apply {
-				verb = "übernommen"
+				verb = "gesetzt"
 			}
-			fmt.Printf("  %s: %d Preise von %s %s\n", res.ParentSKU, res.Prices, res.SourceSKU, verb)
+			fmt.Printf("  %s: %d Preise aus %d Kindartikeln %s\n", res.ParentSKU, res.Prices, res.Children, verb)
+
+			// In a test run the detail is the whole point: it shows which child
+			// won each shop, so a few can be checked against Wawi before writing.
+			if !apply {
+				for _, detail := range res.Details {
+					fmt.Printf("      %s\n", formatPriceDetail(detail))
+				}
+			}
 		}
 	}
 
@@ -250,4 +271,24 @@ func runBackfill(itemIDs []int, categoryID int, apply bool) error {
 	}
 
 	return nil
+}
+
+func formatPriceDetail(detail wawi.BackfillPrice) string {
+	price := detail.Price
+
+	amount := "-"
+	switch {
+	case price.NetPrice != nil:
+		amount = fmt.Sprintf("%.2f netto", *price.NetPrice)
+	case price.ReduceStandardPriceByPercent != nil:
+		amount = fmt.Sprintf("-%.2f%%", *price.ReduceStandardPriceByPercent)
+	}
+
+	tier := ""
+	if price.FromQuantity > 0 {
+		tier = fmt.Sprintf(" ab %d Stück", price.FromQuantity)
+	}
+
+	return fmt.Sprintf("Kanal %s, Kundengruppe %d%s: %s (von %s)",
+		price.SalesChannelId, price.CustomerGroupId, tier, amount, detail.SourceSKU)
 }

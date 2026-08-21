@@ -100,6 +100,7 @@ WawiIC.exe -config "D:\\MyConfigs\\custom.json"
   Sometimes searching by full name or full item number helps, or searching by only part of the name.
 - **Program or API server freezes**:  
   Restart both WawiIC and the API server.
+- **Prices on the parent item**: For every sales channel, customer group and quantity tier the parent gets the lowest price across all child items, so different channels may come from different children. This applies both when merging items and when backfilling with `-backfill-prices`.
 - **Review parent items**:  
   After merging items, always check item descriptions, images, and SEO description.  
   AI can make mistakes, so manual review is recommended.
@@ -117,7 +118,11 @@ WawiIC.exe -backfill-prices -apply   # writes the prices
 ```
 
 Faster, and recommended: export the parent items from JTL-Ameise with the
-`kArtikel` column and hand the file over, then nothing has to be searched at all.
+`Interner Schlüssel` column and hand the file over, then nothing has to be
+searched at all.
+
+For every sales channel the lowest price across all child items is used, so
+different channels may come from different children.
 
 ```sh
 WawiIC.exe -backfill-csv export.csv -backfill-prices

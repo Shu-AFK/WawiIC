@@ -14,10 +14,29 @@ const ParentAnnotation = "Mit API erstellt"
 type BackfillResult struct {
 	ParentSKU string
 	ParentID  int
+	// Children is how many child items the prices were compared across.
+	Children int
+	Prices   int
+	// Details lists the winning price per sales channel, customer group and
+	// quantity tier, together with the child it came from.
+	Details []BackfillPrice
+	Skipped string
+	Err     error
+}
+
+// BackfillPrice is one price that would be written to the parent item.
+type BackfillPrice struct {
+	Price     wawi_structs.ItemSalesChannelPrice
 	SourceSKU string
-	Prices    int
-	Skipped   string
-	Err       error
+}
+
+// salesChannelPriceKey identifies one price slot. A sales channel can hold a
+// different price per customer group and per quantity tier, and each of those
+// has to be compared separately.
+type salesChannelPriceKey struct {
+	SalesChannelID  string
+	CustomerGroupID int
+	FromQuantity    int
 }
 
 type BackfillOptions struct {
@@ -82,7 +101,7 @@ func BackfillSalesChannelPrices(opts BackfillOptions, progress func(string)) ([]
 				progress(fmt.Sprintf("%d von %d Artikeln geprüft, %d Vaterartikel gefunden.", scanned, total, len(results)))
 			}
 
-			if len(item.ChildItems) == 0 || item.Annotation != ParentAnnotation {
+			if notAParent(item) != "" || item.Annotation != ParentAnnotation {
 				continue
 			}
 
@@ -114,28 +133,133 @@ func backfillParent(parent wawi_structs.GetItem, apply bool) BackfillResult {
 		res.Skipped = "keine Kindartikel abrufbar"
 		return res
 	}
+	res.Children = len(children)
 
-	source := children[pickPriceSource(parent, children)]
-	res.SourceSKU = source.SKU
-
-	prices, err := QueryItemSalesChannelPrices(strconv.Itoa(source.ID))
+	details, err := lowestPricePerChannel(children)
 	if err != nil {
 		res.Err = err
 		return res
 	}
-	if len(prices) == 0 {
-		res.Skipped = "Quellartikel hat keine Verkaufskanalpreise"
+	if len(details) == 0 {
+		res.Skipped = "kein Kindartikel hat Verkaufskanalpreise"
 		return res
 	}
-	res.Prices = len(prices)
+	res.Details = details
+	res.Prices = len(details)
 
 	if apply {
-		if err := copySalesChannelPrices(source.ID, parent.ID); err != nil {
+		if err := writeSalesChannelPrices(parent.ID, details); err != nil {
 			res.Err = err
 		}
 	}
 
 	return res
+}
+
+// writeSalesChannelPrices puts one price per sales channel slot onto an item.
+func writeSalesChannelPrices(itemID int, details []BackfillPrice) error {
+	target := strconv.Itoa(itemID)
+
+	for _, detail := range details {
+		if err := UpdateItemSalesChannelPrice(target, detail.Price); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ApplyLowestPricePerChannel gives an item the cheapest price each sales channel
+// has across the supplied children. Used both when a parent item is created and
+// when the prices are backfilled onto an existing one, so both paths agree.
+func ApplyLowestPricePerChannel(children []wawi_structs.GetItem, targetItemID int) error {
+	details, err := lowestPricePerChannel(children)
+	if err != nil {
+		return err
+	}
+
+	return writeSalesChannelPrices(targetItemID, details)
+}
+
+// LowestPrice returns the smallest non nil value the getter finds across items.
+func LowestPrice(items []wawi_structs.GetItem, get func(wawi_structs.ItemPriceData) *float64) *float64 {
+	var best *float64
+
+	for _, item := range items {
+		value := get(item.ItemPriceData)
+		if value == nil {
+			continue
+		}
+		if best == nil || *value < *best {
+			best = value
+		}
+	}
+
+	return best
+}
+
+// lowestPricePerChannel collects the sales channel prices of every child and
+// keeps the cheapest one per channel, customer group and quantity tier. Taking
+// the minimum per slot rather than one child's whole price list means the parent
+// never advertises more than the cheapest variant actually costs on that shop.
+func lowestPricePerChannel(children []wawi_structs.GetItem) ([]BackfillPrice, error) {
+	best := make(map[salesChannelPriceKey]BackfillPrice)
+	order := make([]salesChannelPriceKey, 0)
+
+	for _, child := range children {
+		prices, err := QueryItemSalesChannelPrices(strconv.Itoa(child.ID))
+		if err != nil {
+			return nil, err
+		}
+
+		for _, price := range prices {
+			if price.NetPrice == nil && price.ReduceStandardPriceByPercent == nil {
+				continue
+			}
+
+			key := salesChannelPriceKey{
+				SalesChannelID:  price.SalesChannelId,
+				CustomerGroupID: price.CustomerGroupId,
+				FromQuantity:    price.FromQuantity,
+			}
+
+			candidate := BackfillPrice{Price: price, SourceSKU: child.SKU}
+			current, seen := best[key]
+			if !seen {
+				best[key] = candidate
+				order = append(order, key)
+				continue
+			}
+			if isCheaper(candidate.Price, current.Price) {
+				best[key] = candidate
+			}
+		}
+	}
+
+	details := make([]BackfillPrice, 0, len(order))
+	for _, key := range order {
+		details = append(details, best[key])
+	}
+
+	return details, nil
+}
+
+// isCheaper reports whether a undercuts b. A concrete net price always wins over
+// a percentage reduction, because the two cannot be compared without knowing the
+// standard price they each apply to; among percentages the larger discount wins.
+func isCheaper(a, b wawi_structs.ItemSalesChannelPrice) bool {
+	switch {
+	case a.NetPrice != nil && b.NetPrice != nil:
+		return *a.NetPrice < *b.NetPrice
+	case a.NetPrice != nil:
+		return true
+	case b.NetPrice != nil:
+		return false
+	case a.ReduceStandardPriceByPercent != nil && b.ReduceStandardPriceByPercent != nil:
+		return *a.ReduceStandardPriceByPercent > *b.ReduceStandardPriceByPercent
+	default:
+		return false
+	}
 }
 
 func formatBackfillProgress(res BackfillResult, index int) string {
@@ -145,27 +269,8 @@ func formatBackfillProgress(res BackfillResult, index int) string {
 	case res.Skipped != "":
 		return fmt.Sprintf("[%d] %s: übersprungen", index, res.ParentSKU)
 	default:
-		return fmt.Sprintf("[%d] %s: %d Preise von %s", index, res.ParentSKU, res.Prices, res.SourceSKU)
+		return fmt.Sprintf("[%d] %s: %d Preise aus %d Kindartikeln", index, res.ParentSKU, res.Prices, res.Children)
 	}
-}
-
-// pickPriceSource returns the index of the child the parent originally took its
-// prices from. The parent kept the cheapest child's standard price, so an exact
-// match on that price reproduces the original choice even if prices have moved
-// since; otherwise the cheapest child today is the best guess.
-func pickPriceSource(parent wawi_structs.GetItem, children []wawi_structs.GetItem) int {
-	if parent.ItemPriceData.SalesPriceNet != nil {
-		for i, child := range children {
-			if child.ItemPriceData.SalesPriceNet == nil {
-				continue
-			}
-			if *child.ItemPriceData.SalesPriceNet == *parent.ItemPriceData.SalesPriceNet {
-				return i
-			}
-		}
-	}
-
-	return findCheapestItem(children)
 }
 
 func fetchItemsByID(ids []int) ([]wawi_structs.GetItem, error) {
@@ -244,13 +349,13 @@ func backfillByID(ids []int, apply bool, progress func(string)) []BackfillResult
 			continue
 		}
 
-		if len(parent.ChildItems) == 0 {
+		if reason := notAParent(*parent); reason != "" {
 			results = append(results, BackfillResult{
 				ParentID:  id,
 				ParentSKU: parent.SKU,
-				Skipped:   "kein Vaterartikel (keine Kindartikel)",
+				Skipped:   reason,
 			})
-			progress(fmt.Sprintf("%s %s: kein Vaterartikel", prefix, parent.SKU))
+			progress(fmt.Sprintf("%s %s: %s", prefix, parent.SKU, reason))
 			continue
 		}
 
@@ -307,4 +412,18 @@ func ParseItemIDs(data string) ([]int, error) {
 	}
 
 	return ids, nil
+}
+
+// notAParent explains why an item cannot receive combined prices, or returns an
+// empty string when it is a proper parent article. Prices are only meaningful on
+// an item that actually has variants to compare.
+func notAParent(item wawi_structs.GetItem) string {
+	if item.ParentItemID != 0 {
+		return "kein Vaterartikel (ist selbst ein Kindartikel)"
+	}
+	if len(item.ChildItems) == 0 {
+		return "kein Vaterartikel (keine Kindartikel)"
+	}
+
+	return ""
 }

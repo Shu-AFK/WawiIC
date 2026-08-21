@@ -46,6 +46,16 @@ func TestParseAmeiseCSV(t *testing.T) {
 			want: []int{1234, 5678},
 		},
 		{
+			name: "interner schlüssel as ameise names it",
+			data: []byte("Interner Schlüssel;Artikelnummer;Name\r\n1234;VK-1;Stuhl\r\n5678;VK-2;Tisch\r\n"),
+			want: []int{1234, 5678},
+		},
+		{
+			name: "interner schluessel written out",
+			data: toWindows1252("Interner Schluessel;Name\r\n1234;Stuhl\r\n5678;Tisch\r\n"),
+			want: []int{1234, 5678},
+		},
+		{
 			name: "comma separated with quotes",
 			data: []byte("\"kArtikel\",\"Name\"\n\"1234\",\"Stuhl, rot\"\n\"5678\",\"Tisch\"\n"),
 			want: []int{1234, 5678},
