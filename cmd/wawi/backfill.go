@@ -1,6 +1,7 @@
 package wawi
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -161,12 +162,17 @@ func backfillParent(parent wawi_structs.GetItem, apply bool) BackfillResult {
 	if apply {
 		// The standard price goes first for the same reason the primary channel
 		// does: the channel rows are the more specific value and must survive.
+		// A refused standard price must not cost the channel prices though, so
+		// both steps run and their errors are reported together.
+		var problems []string
 		if err := UpdateItemPriceData(strconv.Itoa(parent.ID), *res.PriceData); err != nil {
-			res.Err = err
-			return res
+			problems = append(problems, "Artikelpreise: "+err.Error())
 		}
 		if err := writeSalesChannelPrices(parent.ID, details); err != nil {
-			res.Err = err
+			problems = append(problems, err.Error())
+		}
+		if len(problems) > 0 {
+			res.Err = errors.New(strings.Join(problems, "\n      "))
 		}
 	}
 
