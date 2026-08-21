@@ -19,7 +19,7 @@ var idHeaders = []string{
 	"kartikel", "interneid", "artikelid", "itemid", "id",
 }
 
-// ParseAmeiseCSV pulls the internal item ids out of a JTL-Ameise export. Encoding
+// ParseAmeiseCSV pulls the "Interner Schlüssel" column out of a JTL-Ameise export. Encoding
 // and delimiter are configurable in Ameise, so both are detected from the file
 // rather than assumed.
 func ParseAmeiseCSV(data []byte) ([]int, error) {
@@ -68,10 +68,10 @@ func ParseAmeiseCSV(data []byte) ([]int, error) {
 
 		id, err := strconv.Atoi(field)
 		if err != nil {
-			return nil, fmt.Errorf("row %d: %q in column %q is not an internal id", row, field, header[column])
+			return nil, fmt.Errorf("row %d: %q in column %q ist kein Interner Schlüssel", row, field, header[column])
 		}
 		if id <= 0 {
-			return nil, fmt.Errorf("row %d: %d is not a valid internal id", row, id)
+			return nil, fmt.Errorf("row %d: %d ist kein gültiger Interner Schlüssel", row, id)
 		}
 
 		if _, dup := seen[id]; dup {
@@ -82,7 +82,7 @@ func ParseAmeiseCSV(data []byte) ([]int, error) {
 	}
 
 	if len(ids) == 0 {
-		return nil, fmt.Errorf("no internal ids found in column %q", header[column])
+		return nil, fmt.Errorf("keine Internen Schlüssel in Spalte %q gefunden", header[column])
 	}
 
 	return ids, nil
@@ -103,7 +103,7 @@ func findIDColumn(header []string) (int, error) {
 	}
 
 	return 0, fmt.Errorf(
-		"no internal id column found, looked for %s but the file has: %s",
+		"keine Spalte mit dem Internen Schlüssel gefunden, gesucht wurde nach %s, die Datei hat: %s",
 		strings.Join(idHeaders, ", "),
 		strings.Join(header, ", "),
 	)

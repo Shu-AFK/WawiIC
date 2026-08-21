@@ -634,8 +634,11 @@ func UpdateItemSalesChannelPrice(itemID string, price wawi_structs.ItemSalesChan
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("failed to update sales channel price %s/%d/%d: %v (%v)",
-			price.SalesChannelId, price.CustomerGroupId, price.FromQuantity, resp.StatusCode, string(errorBody))
+		// The request itself is part of the message: a rejected price is almost
+		// always about which channel, customer group or tier was addressed, and
+		// that is only visible in the URL and body that were actually sent.
+		return fmt.Errorf("PATCH %s mit %s -> HTTP %d %s",
+			reqUrl, string(reqBody), resp.StatusCode, strings.TrimSpace(string(errorBody)))
 	}
 
 	return nil

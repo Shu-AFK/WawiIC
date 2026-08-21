@@ -10,7 +10,7 @@ const (
 	AppID           = "WawiIC/v1"
 	DisplayName     = "WawiIC"
 	Description     = "Artikel zu Vaterartikeln zusammenführen"
-	Version         = "1.0.4"
+	Version         = "1.0.5"
 	ProviderName    = "Floyd Göttsch"
 	ProviderWebsite = "https://www.alpa-industrievertretungen.de/"
 	XChallangeCode  = "wh5x1kgdm2koqsc31rfly3s"

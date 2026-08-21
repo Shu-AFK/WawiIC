@@ -46,7 +46,7 @@ bekommen, nicht die Preise der einzelnen Verkaufskanäle. Der Backfill trägt di
 nach.
 
 Ablauf pro Artikel:
-  1. Artikel wird direkt über seine interne ID geladen.
+  1. Artikel wird direkt über seinen Internen Schlüssel geladen.
   2. Es wird geprüft, ob es wirklich ein Vaterartikel ist. Artikel ohne
      Kindartikel und Artikel, die selbst Kindartikel sind, werden übersprungen.
   3. Alle Kindartikel werden geladen und deren Verkaufskanalpreise verglichen.
@@ -70,8 +70,11 @@ Welche Artikel bearbeitet werden, eine der drei Varianten:
                           (UTF-16, UTF-8, ANSI) werden erkannt. Der Dateiname
                           ist beliebig.
 
-  -backfill-ids <datei>   Textdatei mit einer internen Artikel-ID pro Zeile.
+  -backfill-ids <datei>   Textdatei mit einem Internen Schlüssel pro Zeile.
                           Leerzeilen und Zeilen mit # werden übersprungen.
+
+  Wird eine der beiden Dateien angegeben, läuft der Backfill automatisch,
+  -backfill-prices muss dann nicht zusätzlich gesetzt werden.
 
   ohne beides             Die Kategorie aus der config wird durchsucht. Nur
                           Artikel mit der Anmerkung "Mit API erstellt" werden
@@ -105,8 +108,8 @@ func main() {
 	backfillFlag := flag.Bool("backfill-prices", false, "Verkaufskanalpreise auf bestehende Vaterartikel nachtragen")
 	applyFlag := flag.Bool("apply", false, "zusammen mit -backfill-prices: Änderungen wirklich schreiben (sonst nur Testlauf)")
 	backfillCatFlag := flag.Int("backfill-category", -1, "zusammen mit -backfill-prices: zu durchsuchende Kategorie (Standard: die aus der config, 0 = alle Artikel)")
-	backfillIDsFlag := flag.String("backfill-ids", "", "zusammen mit -backfill-prices: Datei mit einer internen Artikel-ID pro Zeile")
-	backfillCSVFlag := flag.String("backfill-csv", "", "zusammen mit -backfill-prices: JTL-Ameise Export, die internen IDs daraus werden bearbeitet")
+	backfillIDsFlag := flag.String("backfill-ids", "", "Datei mit einem Internen Schlüssel pro Zeile (impliziert -backfill-prices)")
+	backfillCSVFlag := flag.String("backfill-csv", "", "JTL-Ameise Export, die Internen Schlüssel daraus werden bearbeitet (impliziert -backfill-prices)")
 	flag.Parse()
 
 	cfgPath := *cfgFlag
@@ -149,7 +152,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", *backfillCSVFlag, err)
 			exit(2, *pauseFlag)
 		}
-		fmt.Printf("%d Artikel-IDs aus %s gelesen.\n", len(itemIDs), *backfillCSVFlag)
+		fmt.Printf("%d Interne Schlüssel aus %s gelesen.\n", len(itemIDs), *backfillCSVFlag)
 	}
 
 	if *backfillIDsFlag != "" {
@@ -190,6 +193,12 @@ func main() {
 		}
 	} else {
 		fmt.Println("Wawi API key found.")
+	}
+
+	// Handing over a list can only mean the backfill. Falling through to the GUI
+	// here would look like the program simply ignored the file.
+	if *backfillCSVFlag != "" || *backfillIDsFlag != "" {
+		*backfillFlag = true
 	}
 
 	if *backfillFlag {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Shu-AFK/WawiIC/cmd/wawi/wawi_structs"
 )
@@ -206,6 +207,11 @@ func lowestPricePerChannel(children []wawi_structs.GetItem) ([]BackfillPrice, er
 	best := make(map[salesChannelPriceKey]BackfillPrice)
 	order := make([]salesChannelPriceKey, 0)
 
+	// Only online shops and JTL-POS accept item prices. Sending one to any other
+	// channel is rejected with a 400, even though that channel can appear in the
+	// prices read off a child item.
+	acceptsPrices, capErr := channelsAcceptingPrices()
+
 	for _, child := range children {
 		prices, err := QueryItemSalesChannelPrices(strconv.Itoa(child.ID))
 		if err != nil {
@@ -214,6 +220,9 @@ func lowestPricePerChannel(children []wawi_structs.GetItem) ([]BackfillPrice, er
 
 		for _, price := range prices {
 			if price.NetPrice == nil && price.ReduceStandardPriceByPercent == nil {
+				continue
+			}
+			if capErr == nil && !acceptsPrices[price.SalesChannelId] {
 				continue
 			}
 
@@ -265,7 +274,7 @@ func isCheaper(a, b wawi_structs.ItemSalesChannelPrice) bool {
 func formatBackfillProgress(res BackfillResult, index int) string {
 	switch {
 	case res.Err != nil:
-		return fmt.Sprintf("[%d] %s: Fehler", index, res.ParentSKU)
+		return fmt.Sprintf("[%d] %s: FEHLER %v", index, res.ParentSKU, res.Err)
 	case res.Skipped != "":
 		return fmt.Sprintf("[%d] %s: übersprungen", index, res.ParentSKU)
 	default:
@@ -426,4 +435,31 @@ func notAParent(item wawi_structs.GetItem) string {
 	}
 
 	return ""
+}
+
+var (
+	channelPriceSupportOnce sync.Once
+	channelPriceSupport     map[string]bool
+	channelPriceSupportErr  error
+)
+
+// channelsAcceptingPrices reports, per sales channel id, whether item prices can
+// be written to it at all. Queried once and reused, since it is the same answer
+// for every item in a run.
+func channelsAcceptingPrices() (map[string]bool, error) {
+	channelPriceSupportOnce.Do(func() {
+		channels, err := QuerySalesChannels()
+		if err != nil {
+			channelPriceSupportErr = err
+			return
+		}
+
+		support := make(map[string]bool, len(channels))
+		for _, channel := range channels {
+			support[channel.Id] = channel.ItemCapabilities.Prices
+		}
+		channelPriceSupport = support
+	})
+
+	return channelPriceSupport, channelPriceSupportErr
 }
