@@ -171,6 +171,17 @@ func backfillParent(parent wawi_structs.GetItem, apply bool) BackfillResult {
 		if err := writeSalesChannelPrices(parent.ID, details); err != nil {
 			problems = append(problems, err.Error())
 		}
+		// The API answering 204 does not prove the value arrived, so read it back
+		// and compare. A silently ignored write is otherwise invisible until
+		// someone opens the article in Wawi.
+		if mismatches, err := verifySalesChannelPrices(parent.ID, details); err != nil {
+			problems = append(problems, "Nachprüfen fehlgeschlagen: "+err.Error())
+		} else if len(mismatches) > 0 {
+			problems = append(problems, fmt.Sprintf(
+				"%d Preise wurden angenommen, stehen danach aber nicht am Artikel:\n      %s",
+				len(mismatches), strings.Join(mismatches, "\n      ")))
+		}
+
 		if len(problems) > 0 {
 			res.Err = errors.New(strings.Join(problems, "\n      "))
 		}
@@ -506,4 +517,57 @@ func ChannelPriceSupport() (map[string]bool, error) {
 	})
 
 	return channelPriceSupport, channelPriceSupportErr
+}
+
+// verifySalesChannelPrices reads the item back and reports every slot whose
+// stored value differs from what was just written.
+func verifySalesChannelPrices(itemID int, written []BackfillPrice) ([]string, error) {
+	stored, err := QueryItemSalesChannelPrices(strconv.Itoa(itemID))
+	if err != nil {
+		return nil, err
+	}
+
+	byKey := make(map[salesChannelPriceKey]wawi_structs.ItemSalesChannelPrice, len(stored))
+	for _, price := range stored {
+		byKey[salesChannelPriceKey{
+			SalesChannelID:  price.SalesChannelId,
+			CustomerGroupID: price.CustomerGroupId,
+			FromQuantity:    price.FromQuantity,
+		}] = price
+	}
+
+	var mismatches []string
+	for _, detail := range written {
+		want := detail.Price
+		key := salesChannelPriceKey{
+			SalesChannelID:  want.SalesChannelId,
+			CustomerGroupID: want.CustomerGroupId,
+			FromQuantity:    want.FromQuantity,
+		}
+
+		got, ok := byKey[key]
+		if !ok {
+			mismatches = append(mismatches, fmt.Sprintf(
+				"Kanal %s, Gruppe %d, ab %d: Zeile fehlt danach immer noch",
+				key.SalesChannelID, key.CustomerGroupID, key.FromQuantity))
+			continue
+		}
+
+		if want.NetPrice != nil && (got.NetPrice == nil || *got.NetPrice != *want.NetPrice) {
+			mismatches = append(mismatches, fmt.Sprintf(
+				"Kanal %s, Gruppe %d, ab %d: geschrieben %g, gespeichert %s",
+				key.SalesChannelID, key.CustomerGroupID, key.FromQuantity,
+				*want.NetPrice, formatOptionalFloat(got.NetPrice)))
+		}
+	}
+
+	return mismatches, nil
+}
+
+func formatOptionalFloat(value *float64) string {
+	if value == nil {
+		return "-"
+	}
+
+	return fmt.Sprintf("%g", *value)
 }
