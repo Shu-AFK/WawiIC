@@ -291,3 +291,30 @@ func TestFormatStoredValues(t *testing.T) {
 		t.Errorf("formatStoredValues() = %q", got)
 	}
 }
+
+// A child that is not active in a shop has no price there, so it must not count
+// towards that shop's minimum - the cheapest of the remaining children wins.
+func TestSourcesCountsOnlyChildrenWithAPrice(t *testing.T) {
+	details := []BackfillPrice{
+		{Price: channelPrice("1-1-3", 3, 0, price(11.94688), nil), SourceSKU: "A", Sources: 2},
+		{Price: channelPrice("1-1-3", 3, 0, price(16.42696), nil), Occurrence: 1, SourceSKU: "A", Sources: 1},
+	}
+
+	// Shop 1 was priced by both children, shop 2 only by one.
+	if details[0].Sources != 2 {
+		t.Errorf("shop 1 sources = %d, want 2", details[0].Sources)
+	}
+	if details[1].Sources != 1 {
+		t.Errorf("shop 2 sources = %d, want 1", details[1].Sources)
+	}
+
+	out := retargetChannels(details, []string{"2-2-2", "2-2-1"})
+	if len(out) != 2 {
+		t.Fatalf("got %d prices, want 2", len(out))
+	}
+	// The shop only one child sells in keeps that child's price rather than the
+	// cheaper price of a shop it is not in.
+	if *out[1].Price.NetPrice != 16.42696 {
+		t.Errorf("shop 2 price = %v, want 16.42696", *out[1].Price.NetPrice)
+	}
+}

@@ -25,6 +25,9 @@ type BackfillResult struct {
 	// Children is how many child items the prices were compared across.
 	Children int
 	Prices   int
+	// Shops is how many price sets per customer group the children carry. More
+	// than one means the API cannot say which set belongs to which shop.
+	Shops int
 	// Details lists the winning price per sales channel, customer group and
 	// quantity tier, together with the child it came from.
 	Details []BackfillPrice
@@ -42,6 +45,10 @@ type BackfillPrice struct {
 	// Occurrence is which shop position this price came from, counted within a
 	// child's price list. See salesChannelPriceKey.
 	Occurrence int
+	// Sources is how many children had a price for this slot at all. Children not
+	// active in that shop have no price there and do not count, so the cheapest
+	// of the remaining ones wins.
+	Sources int
 }
 
 // salesChannelPriceKey identifies one price slot. A sales channel can hold a
@@ -164,6 +171,7 @@ func backfillParent(parent wawi_structs.GetItem, apply bool, priceChannels []str
 		return res
 	}
 	if len(priceChannels) > 0 {
+		res.Shops = shopCount(details)
 		details = retargetChannels(details, priceChannels)
 	}
 	if len(details) == 0 {
@@ -307,16 +315,21 @@ func lowestPricePerChannel(children []wawi_structs.GetItem) ([]BackfillPrice, er
 			key.Occurrence = seenInChild[key]
 			seenInChild[key]++
 
-			candidate := BackfillPrice{Price: price, SourceSKU: child.SKU, Occurrence: key.Occurrence}
+			candidate := BackfillPrice{Price: price, SourceSKU: child.SKU, Occurrence: key.Occurrence, Sources: 1}
 			current, seen := best[key]
 			if !seen {
 				best[key] = candidate
 				order = append(order, key)
 				continue
 			}
+
+			candidate.Sources = current.Sources + 1
 			if isCheaper(candidate.Price, current.Price) {
 				best[key] = candidate
+				continue
 			}
+			current.Sources = candidate.Sources
+			best[key] = current
 		}
 	}
 
@@ -674,4 +687,18 @@ func ensureActiveChannels(parent wawi_structs.GetItem, details []BackfillPrice) 
 	}
 
 	return SetItemActiveSalesChannels(strconv.Itoa(parent.ID), channels)
+}
+
+// shopCount reports how many price sets an item carries per customer group. More
+// than one means the children hold prices for several shops, and the API gives
+// nothing to tell them apart by.
+func shopCount(details []BackfillPrice) int {
+	highest := 0
+	for _, detail := range details {
+		if detail.Occurrence+1 > highest {
+			highest = detail.Occurrence + 1
+		}
+	}
+
+	return highest
 }

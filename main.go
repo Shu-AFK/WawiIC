@@ -115,14 +115,16 @@ auf den zweiten, und so weiter.
 
   -price-channels 2-2-2,2-2-6
 
-Damit bekommt Shop 1 den niedrigsten ersten Preis über alle Kindartikel und
-Shop 2 den niedrigsten zweiten. Shops mit unterschiedlichen Preisen bleiben so
-unterschiedlich. Die Zuordnung muss zur Reihenfolge in Wawi passen, deshalb
-vorher immer ohne -apply laufen lassen und die Zeilen "Shop 1", "Shop 2" gegen
-die Reiter im Artikel prüfen. Werden weniger Kanäle genannt als es Preissätze
-gibt, werden die überzähligen nicht geschrieben.
+Pro Preis wird der günstigste Wert der Kindartikel genommen, die dort überhaupt
+einen Preis haben. Ein Kindartikel, der in einem Shop nicht aktiv ist, hat dort
+keine Preiszeile und zählt nicht mit - der günstigste der übrigen gewinnt. Der
+Testlauf zeigt zu jedem Preis, aus wie vielen Kindartikeln er stammt.
 
-Die IDs liefert -sales-channels.
+Hat ein Artikel mehr als einen Preissatz pro Kundengruppe, wird das im Testlauf
+gemeldet: die Zuordnung zu den Shops beruht dann allein auf der Reihenfolge und
+sollte gegen die Reiter in Wawi geprüft werden.
+
+Die IDs liefert -sales-channels, die Preissätze eines Artikels -inspect.
 
 Diagnose:
   -sales-channels         Listet alle Verkaufskanäle des Systems mit ID, Typ,
@@ -339,6 +341,9 @@ func runBackfill(itemIDs []int, categoryID int, priceChannels []string, apply bo
 				verb = "gesetzt"
 			}
 			fmt.Printf("  %s: %d Preise aus %d Kindartikeln %s\n", res.ParentSKU, res.Prices, res.Children, verb)
+			if res.Shops > 1 {
+				fmt.Printf("      Achtung: %d Preissätze pro Kundengruppe, die Zuordnung zu den Shops beruht auf der Reihenfolge\n", res.Shops)
+			}
 
 			// In a test run the detail is the whole point: it shows which child
 			// won each shop, so a few can be checked against Wawi before writing.
@@ -377,8 +382,9 @@ func formatPriceDetail(detail wawi.BackfillPrice) string {
 		tier = fmt.Sprintf(" ab %d Stück", price.FromQuantity)
 	}
 
-	return fmt.Sprintf("Kanal %s (Shop %d), Kundengruppe %d%s: %s (von %s)",
-		price.SalesChannelId, detail.Occurrence+1, price.CustomerGroupId, tier, amount, detail.SourceSKU)
+	return fmt.Sprintf("Kanal %s (Shop %d), Kundengruppe %d%s: %s - günstigster von %d Kindartikel(n): %s",
+		price.SalesChannelId, detail.Occurrence+1, price.CustomerGroupId, tier, amount,
+		detail.Sources, detail.SourceSKU)
 }
 
 // printSalesChannels lists what the system actually has. Sales channel ids are
