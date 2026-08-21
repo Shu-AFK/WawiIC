@@ -218,3 +218,24 @@ func TestLowestItemPriceData(t *testing.T) {
 		t.Error("UVP or purchase price were set although they are not shop prices")
 	}
 }
+
+// Zero is Wawi's "no price set", not a price of nothing. Treating it as the
+// minimum would overwrite a real price with 0.00.
+func TestLowestPriceIgnoresZero(t *testing.T) {
+	items := []wawi_structs.GetItem{
+		{ID: 1, Item: wawi_structs.Item{SKU: "A", ItemPriceData: wawi_structs.ItemPriceData{
+			EbayPrice: price(0), AmazonPrice: price(0),
+		}}},
+		{ID: 2, Item: wawi_structs.Item{SKU: "B", ItemPriceData: wawi_structs.ItemPriceData{
+			EbayPrice: price(25), AmazonPrice: price(0),
+		}}},
+	}
+
+	if got := LowestPrice(items, func(p wawi_structs.ItemPriceData) *float64 { return p.EbayPrice }); got == nil || *got != 25 {
+		t.Errorf("EbayPrice = %v, want 25", got)
+	}
+	// Every value is zero, so there is nothing to write at all.
+	if got := LowestPrice(items, func(p wawi_structs.ItemPriceData) *float64 { return p.AmazonPrice }); got != nil {
+		t.Errorf("AmazonPrice = %v, want nil", *got)
+	}
+}

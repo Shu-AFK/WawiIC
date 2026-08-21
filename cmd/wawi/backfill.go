@@ -235,13 +235,15 @@ func ApplyLowestPricePerChannel(children []wawi_structs.GetItem, targetItemID in
 	return writeSalesChannelPrices(targetItemID, details)
 }
 
-// LowestPrice returns the smallest non nil value the getter finds across items.
+// LowestPrice returns the smallest price the getter finds across items. Zero
+// means "no price set" in Wawi rather than "free", so zeros are ignored - taking
+// them as the minimum would wipe a real price with 0.00.
 func LowestPrice(items []wawi_structs.GetItem, get func(wawi_structs.ItemPriceData) *float64) *float64 {
 	var best *float64
 
 	for _, item := range items {
 		value := get(item.ItemPriceData)
-		if value == nil {
+		if value == nil || *value == 0 {
 			continue
 		}
 		if best == nil || *value < *best {

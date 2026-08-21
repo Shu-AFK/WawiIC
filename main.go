@@ -428,7 +428,7 @@ func inspectItem(id int) error {
 
 func printItemPrices(label string, item wawi_structs.GetItem) {
 	fmt.Printf("\n%s %d %s\n", label, item.ID, item.SKU)
-	fmt.Printf("  Artikelpreise: %s\n", formatPriceData(item.ItemPriceData))
+	fmt.Printf("  %s\n", formatPriceData(item.ItemPriceData))
 
 	prices, err := wawi.QueryItemSalesChannelPrices(strconv.Itoa(item.ID))
 	if err != nil {
@@ -449,6 +449,12 @@ func printItemPrices(label string, item wawi_structs.GetItem) {
 			formatOptionalPrice(price.NetPrice),
 			formatOptionalPrice(price.ReduceStandardPriceByPercent),
 		)
+	}
+
+	// The parsed view hides any field the model does not know about, and one of
+	// those is what tells two rows with the same key apart.
+	if raw, err := wawi.QueryItemSalesChannelPricesRaw(strconv.Itoa(item.ID)); err == nil {
+		fmt.Printf("  Rohdaten: %s\n", string(raw))
 	}
 }
 

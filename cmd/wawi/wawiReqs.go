@@ -568,6 +568,22 @@ func wawiCreateRequest(method string, url string, body io.Reader) (*http.Respons
 	return resp, nil
 }
 
+// QueryItemSalesChannelPricesRaw returns the untouched response. The documented
+// model turned out to be incomplete - the same channel, customer group and
+// quantity can appear more than once - so the raw payload is the only way to see
+// which field actually distinguishes those rows.
+func QueryItemSalesChannelPricesRaw(itemID string) ([]byte, error) {
+	reqUrl := defines.APIBaseURL + "items/" + itemID + "/salesChannelPrices"
+
+	resp, err := wawiCreateRequest("GET", reqUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
+}
+
 func QueryItemSalesChannelPrices(itemID string) ([]wawi_structs.ItemSalesChannelPrice, error) {
 	reqUrl := defines.APIBaseURL + "items/" + itemID + "/salesChannelPrices"
 	resp, err := wawiCreateRequest("GET", reqUrl, nil)
