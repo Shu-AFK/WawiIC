@@ -57,6 +57,11 @@ type BackfillOptions struct {
 	// CategoryID limits the search to one category. Zero walks every item, which
 	// on a large catalogue means paging through the entire stock.
 	CategoryID int
+	// PriceChannels overrides the sales channel a price is written to. The read
+	// endpoint reports an id that does not appear in /salesChannels at all and
+	// collapses several shops onto it, so the target has to be named explicitly.
+	// Empty keeps the id the read endpoint reported.
+	PriceChannels []string
 	// Apply writes the prices. When false the run only reports what it would do.
 	Apply bool
 }
@@ -71,7 +76,7 @@ func BackfillSalesChannelPrices(opts BackfillOptions, progress func(string)) ([]
 
 	if len(opts.ItemIDs) > 0 {
 		progress(fmt.Sprintf("%d vorgegebene Artikel-IDs werden bearbeitet.", len(opts.ItemIDs)))
-		return backfillByID(opts.ItemIDs, opts.Apply, progress), nil
+		return backfillByID(opts.ItemIDs, opts.Apply, opts.PriceChannels, progress), nil
 	}
 
 	query := wawi_structs.QueryItemStruct{PageSize: 100}
@@ -116,7 +121,7 @@ func BackfillSalesChannelPrices(opts BackfillOptions, progress func(string)) ([]
 				continue
 			}
 
-			res := backfillParent(item, opts.Apply)
+			res := backfillParent(item, opts.Apply, opts.PriceChannels)
 			results = append(results, res)
 			progress(formatBackfillProgress(res, len(results)))
 		}
@@ -132,7 +137,7 @@ func BackfillSalesChannelPrices(opts BackfillOptions, progress func(string)) ([]
 	return results, nil
 }
 
-func backfillParent(parent wawi_structs.GetItem, apply bool) BackfillResult {
+func backfillParent(parent wawi_structs.GetItem, apply bool, priceChannels []string) BackfillResult {
 	res := BackfillResult{ParentSKU: parent.SKU, ParentID: parent.ID}
 
 	children, err := fetchItemsByID(parent.ChildItems)
@@ -150,6 +155,9 @@ func backfillParent(parent wawi_structs.GetItem, apply bool) BackfillResult {
 	if err != nil {
 		res.Err = err
 		return res
+	}
+	if len(priceChannels) > 0 {
+		details = retargetChannels(details, priceChannels)
 	}
 	if len(details) == 0 {
 		res.Skipped = "kein Kindartikel hat Verkaufskanalpreise"
@@ -397,7 +405,7 @@ func countMatches(query wawi_structs.QueryItemStruct) (int, error) {
 // backfillByID works through an explicit list of parent items. Every item is
 // fetched directly by its internal id, so nothing is searched at all - neither
 // the catalogue size nor the category filter matters here.
-func backfillByID(ids []int, apply bool, progress func(string)) []BackfillResult {
+func backfillByID(ids []int, apply bool, priceChannels []string, progress func(string)) []BackfillResult {
 	results := make([]BackfillResult, 0, len(ids))
 
 	for i, id := range ids {
@@ -425,7 +433,7 @@ func backfillByID(ids []int, apply bool, progress func(string)) []BackfillResult
 			continue
 		}
 
-		res := backfillParent(*parent, apply)
+		res := backfillParent(*parent, apply, priceChannels)
 		results = append(results, res)
 		progress(prefix + " " + strings.TrimPrefix(formatBackfillProgress(res, 0), "[0] "))
 
@@ -572,4 +580,41 @@ func formatOptionalFloat(value *float64) string {
 	}
 
 	return fmt.Sprintf("%g", *value)
+}
+
+// retargetChannels rewrites the target channel of every price. The lowest price
+// found for a customer group and quantity tier is written to each named channel,
+// because the read endpoint cannot say which shop a price actually belongs to.
+func retargetChannels(details []BackfillPrice, channels []string) []BackfillPrice {
+	type groupKey struct {
+		CustomerGroupID int
+		FromQuantity    int
+	}
+
+	best := make(map[groupKey]BackfillPrice)
+	order := make([]groupKey, 0)
+
+	for _, detail := range details {
+		key := groupKey{detail.Price.CustomerGroupId, detail.Price.FromQuantity}
+		current, seen := best[key]
+		if !seen {
+			best[key] = detail
+			order = append(order, key)
+			continue
+		}
+		if isCheaper(detail.Price, current.Price) {
+			best[key] = detail
+		}
+	}
+
+	out := make([]BackfillPrice, 0, len(order)*len(channels))
+	for _, channel := range channels {
+		for _, key := range order {
+			detail := best[key]
+			detail.Price.SalesChannelId = channel
+			out = append(out, detail)
+		}
+	}
+
+	return out
 }

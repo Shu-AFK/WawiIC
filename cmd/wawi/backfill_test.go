@@ -239,3 +239,32 @@ func TestLowestPriceIgnoresZero(t *testing.T) {
 		t.Errorf("AmazonPrice = %v, want nil", *got)
 	}
 }
+
+// The read endpoint cannot say which shop a price belongs to, so the lowest
+// price per customer group and tier is written to every named channel.
+func TestRetargetChannels(t *testing.T) {
+	details := []BackfillPrice{
+		{Price: channelPrice("1-1-3", 3, 0, price(16.42696), nil), SourceSKU: "A"},
+		{Price: channelPrice("1-1-3", 3, 0, price(11.94688), nil), SourceSKU: "B"},
+		{Price: channelPrice("1-1-3", 2, 0, price(18.84), nil), SourceSKU: "A"},
+	}
+
+	out := retargetChannels(details, []string{"2-2-2", "2-2-6"})
+
+	if len(out) != 4 {
+		t.Fatalf("got %d prices, want 4 (2 groups x 2 channels)", len(out))
+	}
+
+	for _, got := range out {
+		if got.Price.SalesChannelId != "2-2-2" && got.Price.SalesChannelId != "2-2-6" {
+			t.Errorf("unexpected channel %s", got.Price.SalesChannelId)
+		}
+		// Group 3 had two candidates, the cheaper one has to win.
+		if got.Price.CustomerGroupId == 3 && *got.Price.NetPrice != 11.94688 {
+			t.Errorf("group 3 = %v, want 11.94688", *got.Price.NetPrice)
+		}
+		if got.Price.CustomerGroupId == 2 && *got.Price.NetPrice != 18.84 {
+			t.Errorf("group 2 = %v, want 18.84", *got.Price.NetPrice)
+		}
+	}
+}

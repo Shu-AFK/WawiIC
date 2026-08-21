@@ -131,6 +131,7 @@ func main() {
 	backfillCatFlag := flag.Int("backfill-category", -1, "zusammen mit -backfill-prices: zu durchsuchende Kategorie (Standard: die aus der config, 0 = alle Artikel)")
 	backfillIDsFlag := flag.String("backfill-ids", "", "Datei mit einem Internen Schlüssel pro Zeile (impliziert -backfill-prices)")
 	channelsFlag := flag.Bool("sales-channels", false, "die Verkaufskanäle des Systems auflisten und beenden")
+	priceChannelsFlag := flag.String("price-channels", "", "Verkaufskanäle, auf die geschrieben wird, kommagetrennt (z.B. 2-2-2). Leer = die IDs aus der Leseantwort")
 	inspectFlag := flag.Int("inspect", 0, "einen Artikel und seine Kindartikel mit allen Verkaufskanalpreisen ausgeben")
 	backfillCSVFlag := flag.String("backfill-csv", "", "JTL-Ameise Export, die Internen Schlüssel daraus werden bearbeitet (impliziert -backfill-prices)")
 	flag.Parse()
@@ -246,7 +247,14 @@ func main() {
 			category = wawi.ConfiguredCategoryID()
 		}
 
-		if err := runBackfill(itemIDs, category, *applyFlag); err != nil {
+		var priceChannels []string
+		for _, channel := range strings.Split(*priceChannelsFlag, ",") {
+			if trimmed := strings.TrimSpace(channel); trimmed != "" {
+				priceChannels = append(priceChannels, trimmed)
+			}
+		}
+
+		if err := runBackfill(itemIDs, category, priceChannels, *applyFlag); err != nil {
 			fmt.Fprintf(os.Stderr, "backfill failed: %v\n", err)
 			exit(1, *pauseFlag)
 		}
@@ -265,11 +273,14 @@ func main() {
 	pauseIfNeeded(*pauseFlag)
 }
 
-func runBackfill(itemIDs []int, categoryID int, apply bool) error {
+func runBackfill(itemIDs []int, categoryID int, priceChannels []string, apply bool) error {
 	if apply {
 		fmt.Println("Backfill wird ausgeführt, Änderungen werden geschrieben.")
 	} else {
 		fmt.Println("Backfill als Testlauf, es wird nichts geschrieben. Mit -apply ausführen.")
+	}
+	if len(priceChannels) > 0 {
+		fmt.Printf("Preise werden auf diese Kanäle geschrieben: %s\n", strings.Join(priceChannels, ", "))
 	}
 	if len(itemIDs) == 0 && categoryID == 0 {
 		fmt.Println("Warnung: ohne Kategorie wird der gesamte Artikelstamm durchsucht, das kann sehr lange dauern.")
@@ -282,9 +293,10 @@ func runBackfill(itemIDs []int, categoryID int, apply bool) error {
 	}
 
 	results, err := wawi.BackfillSalesChannelPrices(wawi.BackfillOptions{
-		ItemIDs:    itemIDs,
-		CategoryID: categoryID,
-		Apply:      apply,
+		ItemIDs:       itemIDs,
+		CategoryID:    categoryID,
+		PriceChannels: priceChannels,
+		Apply:         apply,
 	}, func(msg string) {
 		fmt.Println(msg)
 	})
