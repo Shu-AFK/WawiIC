@@ -296,21 +296,31 @@ func CreateVariations(itemID string, variationName string) (*wawi_structs.Return
 	return &bodyJson, nil
 }
 
-func CreateVariationValue(itemID string, variationID string, name string) (*wawi_structs.ReturnVariationValueCreateStruct, error) {
+// englishTranslation translates a variation value into English. The free Google
+// endpoint answers with an HTML error page once it starts rate limiting, which
+// the translation library reports as "Error unmarshaling data". A missing
+// translation is no reason to leave the parent item without its variation
+// values, so a failed translation only costs the translation itself.
+func englishTranslation(name string) []wawi_structs.Translation {
 	nameEn, err := gtf.Translate(name, "de", "en")
 	if err != nil {
-		return nil, err
+		fmt.Fprintf(os.Stderr, "keine EN-Übersetzung für %q, lege den Wert ohne Übersetzung an: %v\n", name, err)
+		return nil
 	}
 
+	return []wawi_structs.Translation{
+		{
+			LanguageIso: "EN",
+			Name:        nameEn,
+		},
+	}
+}
+
+func CreateVariationValue(itemID string, variationID string, name string) (*wawi_structs.ReturnVariationValueCreateStruct, error) {
 	reqUrl := defines.APIBaseURL + "items/" + itemID + "/variations/" + variationID + "/values"
 	reqBody, err := json.Marshal(wawi_structs.CreateVariationValueStruct{
-		Name: name,
-		Translations: []wawi_structs.Translation{
-			{
-				LanguageIso: "EN",
-				Name:        nameEn,
-			},
-		},
+		Name:         name,
+		Translations: englishTranslation(name),
 	})
 
 	if err != nil {

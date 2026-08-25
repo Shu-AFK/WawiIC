@@ -248,8 +248,10 @@ type Translation struct {
 }
 
 type CreateVariationValueStruct struct {
-	Name         string        `json:"Name"`
-	Translations []Translation `json:"Translations"`
+	Name string `json:"Name"`
+	// Optional in the API model, so an untranslated value omits the field
+	// instead of sending a null the server has to interpret.
+	Translations []Translation `json:"Translations,omitempty"`
 }
 
 type ReturnVariationValueCreateStruct struct {
